@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HiTorro JVS Explorer</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #333; }
+
+        /* Header */
+        .header { background: #1e293b; color: white; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+        .header-left { display: flex; align-items: center; gap: 1rem; }
+        .header h1 { font-size: 1.25rem; font-weight: 600; }
+        .header .subtitle { font-size: 0.85rem; color: #94a3b8; }
+        .status-indicators { display: flex; gap: 1rem; align-items: center; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 0.35rem; }
+        .status-dot.green { background: #22c55e; }
+        .status-dot.red { background: #ef4444; }
+        .status-dot.yellow { background: #eab308; }
+        .status-label { font-size: 0.8rem; color: #94a3b8; display: flex; align-items: center; }
+
+        /* Tabs */
+        .tabs { display: flex; background: #334155; padding: 0 2rem; }
+        .tab { padding: 0.75rem 1.25rem; color: #94a3b8; cursor: pointer; border-bottom: 2px solid transparent; font-size: 0.875rem; transition: color 0.15s; }
+        .tab:hover { color: white; }
+        .tab.active { color: white; border-bottom-color: #3b82f6; }
+
+        /* Layout */
+        .container { max-width: 1400px; margin: 1.5rem auto; padding: 0 1rem; }
+        .card { background: white; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 1.5rem; margin-bottom: 1.5rem; }
+        .card h2 { font-size: 1.1rem; margin-bottom: 0.5rem; color: #1e293b; }
+        .card .description { color: #64748b; margin-bottom: 1rem; font-size: 0.875rem; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+        .grid-3 { display: grid; grid-template-columns: 280px 1fr; gap: 1.5rem; }
+        .hidden { display: none; }
+
+        /* Form elements */
+        textarea { width: 100%; min-height: 250px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 0.85rem; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; resize: vertical; background: #fafafa; }
+        textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
+        button { padding: 0.5rem 1rem; border-radius: 0.375rem; border: none; cursor: pointer; font-size: 0.875rem; font-weight: 500; transition: background 0.15s; }
+        .btn-primary { background: #3b82f6; color: white; }
+        .btn-primary:hover { background: #2563eb; }
+        .btn-primary:disabled { background: #93c5fd; cursor: wait; }
+        .btn-green { background: #059669; color: white; }
+        .btn-green:hover { background: #047857; }
+        .btn-amber { background: #d97706; color: white; }
+        .btn-amber:hover { background: #b45309; }
+        .btn-secondary { background: #e2e8f0; color: #475569; }
+        .btn-secondary:hover { background: #cbd5e1; }
+        .btn-group { display: flex; gap: 0.5rem; margin: 0.75rem 0; flex-wrap: wrap; }
+        select, input[type=text] { padding: 0.4rem 0.6rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem; }
+        select:focus, input[type=text]:focus { outline: none; border-color: #3b82f6; }
+        label { font-size: 0.8rem; font-weight: 600; color: #475569; display: block; margin-bottom: 0.25rem; }
+
+        /* Checkboxes */
+        .checkbox-group { display: flex; gap: 1rem; flex-wrap: wrap; margin: 0.5rem 0; }
+        .checkbox-group label { display: flex; align-items: center; gap: 0.35rem; font-weight: 400; cursor: pointer; }
+        .checkbox-group input[type=checkbox] { accent-color: #3b82f6; }
+
+        /* Results */
+        .result { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0.375rem; padding: 0.75rem; min-height: 250px; overflow: auto; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; max-height: 600px; }
+
+        /* Type explorer */
+        .type-list { max-height: 600px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 0.375rem; }
+        .type-item { padding: 0.5rem 0.75rem; border-bottom: 1px solid #f1f5f9; cursor: pointer; font-size: 0.875rem; transition: background 0.1s; }
+        .type-item:hover { background: #f1f5f9; }
+        .type-item.selected { background: #eff6ff; border-left: 3px solid #3b82f6; }
+        .type-count { font-size: 0.75rem; color: #94a3b8; margin-left: 0.5rem; }
+
+        /* Badges */
+        .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; }
+        .badge-blue { background: #dbeafe; color: #1d4ed8; }
+        .badge-green { background: #dcfce7; color: #166534; }
+        .badge-amber { background: #fef3c7; color: #92400e; }
+        .badge-purple { background: #f3e8ff; color: #7c3aed; }
+        .badge-red { background: #fee2e2; color: #991b1b; }
+        .badge-gray { background: #f1f5f9; color: #475569; }
+
+        /* Field cards */
+        .field-card { padding: 0.5rem 0.75rem; margin: 0.25rem 0; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0.25rem; font-size: 0.85rem; }
+        .field-name { font-weight: 600; }
+        .field-meta { display: flex; gap: 0.35rem; flex-wrap: wrap; margin-top: 0.25rem; }
+        .dynamic-info { font-size: 0.75rem; color: #64748b; margin-top: 0.25rem; padding-left: 0.5rem; border-left: 2px solid #d97706; }
+        .group-card { padding: 0.4rem 0.6rem; background: #ede9fe; border: 1px solid #c4b5fd; border-radius: 0.25rem; margin-top: 0.25rem; font-size: 0.8rem; }
+
+        /* Status messages */
+        .status-msg { padding: 0.75rem; border-radius: 0.375rem; font-size: 0.85rem; margin-bottom: 0.75rem; }
+        .status-ok { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .status-err { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+        .status-warn { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+        .status-info { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+
+        /* JSON highlight */
+        .json-key { color: #0550ae; }
+        .json-string { color: #0a3069; }
+        .json-number { color: #0550ae; }
+        .json-bool { color: #cf222e; }
+        .json-null { color: #6e7781; }
+        .json-highlight { background: #fef3c7; border-radius: 2px; }
+
+        /* Side by side */
+        .side-by-side { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start; }
+
+        /* Loading spinner */
+        .loading { display: inline-block; width: 16px; height: 16px; border: 2px solid #e2e8f0; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 0.5rem; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .grid, .grid-3, .side-by-side { grid-template-columns: 1fr; }
+            .tabs { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="header-left">
+        <h1>HiTorro JVS Explorer</h1>
+        <span class="subtitle">JSON Type System -- NLP -- Enrichment -- Translation</span>
+    </div>
+    <div class="status-indicators" id="status-indicators">
+        <span class="status-label"><span class="status-dot yellow" id="ts-dot"></span> Types: <span id="ts-count">...</span></span>
+        <span class="status-label"><span class="status-dot yellow" id="ollama-dot"></span> Ollama: <span id="ollama-status">...</span></span>
+    </div>
+</div>
+
+<div class="tabs" id="tab-bar">
+    <div class="tab active" data-tab="types">Type Explorer</div>
+    <div class="tab" data-tab="enrich">Enrich &amp; NLP</div>
+    <div class="tab" data-tab="nlp">NLP Tools</div>
+    <div class="tab" data-tab="translate">Translation</div>
+    <div class="tab" data-tab="docs">Documents</div>
+</div>
+
+<div class="container">
+
+    <!-- ==================== Type Explorer Tab ==================== -->
+    <div id="tab-types">
+        <div class="card">
+            <h2>JSON Type System - Type Explorer</h2>
+            <p class="description">
+                Browse type definitions loaded from <code>config/types/</code>. Click a type to view its fields, groups, dynamic field info, and tags.
+            </p>
+            <div class="grid-3">
+                <div>
+                    <div style="margin-bottom:0.5rem;display:flex;justify-content:space-between;align-items:center">
+                        <label style="margin:0">Available Types <span class="type-count" id="type-total"></span></label>
+                        <button class="btn-secondary" onclick="loadTypes()" style="font-size:0.75rem;padding:0.25rem 0.5rem">Refresh</button>
+                    </div>
+                    <div class="type-list" id="type-list"></div>
+                </div>
+                <div>
+                    <label>Type Definition</label>
+                    <div id="type-detail" style="min-height:500px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:0.375rem;padding:1rem;overflow:auto;max-height:700px;">
+                        <span style="color:#94a3b8">Select a type from the list to view its definition...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== Enrich & NLP Tab ==================== -->
+    <div id="tab-enrich" class="hidden">
+        <div class="card">
+            <h2>Enrich &amp; Validate JVS Documents</h2>
+            <p class="description">
+                Enrich typed JSON documents with dynamic fields (stems, segmentation, POS tags, hashes) or validate against a type definition.
+                The JSON must have a <code>type</code> field matching a registered type (e.g. <code>core_sysobject</code>).
+            </p>
+            <div class="grid">
+                <div>
+                    <label>Input JSON</label>
+                    <textarea id="enrich-input" style="min-height:300px">{
+  "type": "core_sysobject",
+  "id": {"domain": "demo", "did": "doc-001"},
+  "title": {"mls": [{"lang": "en", "text": "The quick brown fox jumped over the lazy dogs."}]},
+  "body": {"mls": [{"lang": "en", "text": "Natural language processing enables computers to understand human language."}]}
+}</textarea>
+                    <label style="margin-top:0.75rem">Enrichment Tags</label>
+                    <div class="checkbox-group">
+                        <label><input type="checkbox" id="tag-basic" checked> basic</label>
+                        <label><input type="checkbox" id="tag-segmented"> segmented</label>
+                        <label><input type="checkbox" id="tag-pos"> pos</label>
+                        <label><input type="checkbox" id="tag-hash"> hash</label>
+                        <label><input type="checkbox" id="tag-parsed"> parsed</label>
+                        <label><input type="checkbox" id="tag-answers"> answers</label>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn-primary" onclick="enrichDoc()">Enrich</button>
+                        <button class="btn-green" onclick="validateDoc()">Validate</button>
+                    </div>
+                </div>
+                <div>
+                    <label>Result</label>
+                    <div class="result" id="enrich-result" style="min-height:300px">Enriched or validated result will appear here...
+
+Enrichment adds dynamic fields to MLS text fields:
+  - basic: stems
+  - segmented: clean text, segmented sentences, spans
+  - pos: part-of-speech tags
+  - hash: normhash
+  - parsed: dependency parse
+  - answers: question answering</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== NLP Tools Tab ==================== -->
+    <div id="tab-nlp" class="hidden">
+        <div class="card">
+            <h2>NLP - Snowball Stemming</h2>
+            <p class="description">
+                Stem text using Snowball stemmers. Supports English, German, French, Spanish, Dutch, Portuguese, Italian, and Swedish.
+            </p>
+            <div style="display:flex;gap:1rem;margin-bottom:1rem;align-items:end;flex-wrap:wrap">
+                <div style="flex:1;min-width:300px">
+                    <label>Text to stem</label>
+                    <input type="text" id="stem-input" value="The dogs were running happily through the beautiful gardens" style="width:100%">
+                </div>
+                <div>
+                    <label>Language</label>
+                    <select id="stem-lang">
+                        <option value="en" selected>English</option>
+                        <option value="de">German</option>
+                        <option value="fr">French</option>
+                        <option value="es">Spanish</option>
+                        <option value="nl">Dutch</option>
+                        <option value="pt">Portuguese</option>
+                        <option value="it">Italian</option>
+                        <option value="sv">Swedish</option>
+                    </select>
+                </div>
+                <button class="btn-primary" onclick="stemText()">Stem</button>
+            </div>
+            <div class="side-by-side" id="stem-results" style="display:none">
+                <div>
+                    <label>Original</label>
+                    <div class="result" id="stem-original" style="min-height:80px"></div>
+                </div>
+                <div>
+                    <label>Stemmed</label>
+                    <div class="result" id="stem-stemmed" style="min-height:80px"></div>
+                </div>
+            </div>
+            <div class="result" id="stem-result" style="min-height:80px">Stemmed text will appear here...</div>
+        </div>
+    </div>
+
+    <!-- ==================== Translation Tab ==================== -->
+    <div id="tab-translate" class="hidden">
+        <div class="card">
+            <h2>AI Translation (Ollama)</h2>
+            <p class="description">
+                Translate MLS text fields in a JVS document using a local Ollama LLM. Requires Ollama running locally.
+            </p>
+            <div id="translate-status-bar" class="status-msg status-info" style="display:none"></div>
+            <div class="grid">
+                <div>
+                    <label>Input JSON (with MLS fields)</label>
+                    <textarea id="translate-input" style="min-height:200px">{
+  "type": "core_sysobject",
+  "title": {"mls": [{"lang": "en", "text": "The quick brown fox jumped over the lazy dogs."}]},
+  "body": {"mls": [{"lang": "en", "text": "Natural language processing enables computers to understand language."}]}
+}</textarea>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:0.75rem">
+                        <div>
+                            <label>MLS field paths (comma-separated)</label>
+                            <input type="text" id="translate-fields" value="title,body" style="width:100%">
+                        </div>
+                        <div>
+                            <label>Source language</label>
+                            <select id="translate-source" style="width:100%">
+                                <option value="en" selected>English</option>
+                                <option value="de">German</option>
+                                <option value="fr">French</option>
+                                <option value="es">Spanish</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="margin-top:0.75rem">
+                        <label>Target languages</label>
+                        <div class="checkbox-group">
+                            <label><input type="checkbox" class="target-lang" value="de" checked> German</label>
+                            <label><input type="checkbox" class="target-lang" value="es" checked> Spanish</label>
+                            <label><input type="checkbox" class="target-lang" value="fr"> French</label>
+                            <label><input type="checkbox" class="target-lang" value="it"> Italian</label>
+                            <label><input type="checkbox" class="target-lang" value="pt"> Portuguese</label>
+                            <label><input type="checkbox" class="target-lang" value="nl"> Dutch</label>
+                            <label><input type="checkbox" class="target-lang" value="ja"> Japanese</label>
+                            <label><input type="checkbox" class="target-lang" value="zh"> Chinese</label>
+                        </div>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn-primary" onclick="translateDoc()">Translate</button>
+                        <button class="btn-secondary" onclick="checkTranslateStatus()">Check Ollama Status</button>
+                    </div>
+                </div>
+                <div>
+                    <label>Translation Result</label>
+                    <div class="result" id="translate-result" style="min-height:350px">Translation result will appear here...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== Documents Tab ==================== -->
+    <div id="tab-docs" class="hidden">
+        <div class="card">
+            <h2>Create Document</h2>
+            <p class="description">Create a typed document. The system resolves the type and adds metadata.</p>
+            <div class="grid">
+                <div>
+                    <label>Input JSON</label>
+                    <textarea id="doc-input" style="min-height:200px">{
+  "type": "demo_article",
+  "id": {"domain": "blog", "did": "article-001"},
+  "title": {"mls": [{"lang": "en", "text": "Introduction to HiTorro JVS"}]},
+  "tags": ["jvs", "type-system", "nlp"]
+}</textarea>
+                    <div class="btn-group">
+                        <button class="btn-primary" onclick="createDoc()">Create Document</button>
+                    </div>
+                </div>
+                <div>
+                    <label>Result</label>
+                    <div class="result" id="doc-result" style="min-height:200px">Document result will appear here...</div>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <h2>Merge Documents</h2>
+            <p class="description">Deep-merge a base document with an overlay. Overlay values take precedence.</p>
+            <div class="grid">
+                <div>
+                    <label>Base Document</label>
+                    <textarea id="merge-base" style="min-height:120px">{"name": "original", "version": 1, "shared": "old value", "tags": ["a", "b"]}</textarea>
+                    <label style="margin-top:0.5rem">Overlay Document</label>
+                    <textarea id="merge-overlay" style="min-height:120px">{"shared": "new value", "extra": "added field", "version": 2}</textarea>
+                    <div class="btn-group">
+                        <button class="btn-primary" onclick="mergeDocs()">Merge</button>
+                    </div>
+                </div>
+                <div>
+                    <label>Merged Result</label>
+                    <div class="result" id="merge-result" style="min-height:280px">Merged document will appear here...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+const API = '/api/jvs';
+
+// ─── Tab Navigation ───────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', function() {
+        const name = this.dataset.tab;
+        document.querySelectorAll('[id^="tab-"]').forEach(el => {
+            if (el.id !== 'tab-bar') el.classList.add('hidden');
+        });
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('tab-' + name).classList.remove('hidden');
+        this.classList.add('active');
+        if (name === 'types' && !document.getElementById('type-list').innerHTML) loadTypes();
+        if (name === 'translate') checkTranslateStatus();
+    });
+});
+
+// ─── API Helper ───────────────────────────────────────────────────
+async function api(method, path, body) {
+    const opts = { method, headers: {'Content-Type': 'application/json'} };
+    if (body !== undefined) opts.body = typeof body === 'string' ? body : JSON.stringify(body);
+    const res = await fetch(API + path, opts);
+    const text = await res.text();
+    if (!res.ok) {
+        let msg = text;
+        try { const j = JSON.parse(text); msg = j.message || j.error || text; } catch(e) {}
+        throw new Error('HTTP ' + res.status + ': ' + msg);
+    }
+    try { return JSON.parse(text); } catch(e) { return text; }
+}
+
+function pretty(obj) { return JSON.stringify(obj, null, 2); }
+
+function showError(elementId, message) {
+    const el = document.getElementById(elementId);
+    el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(message) + '</div>';
+}
+
+function showLoading(elementId, message) {
+    const el = document.getElementById(elementId);
+    el.innerHTML = '<span class="loading"></span> ' + escapeHtml(message || 'Loading...');
+}
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+// ─── Status ───────────────────────────────────────────────────────
+async function loadStatus() {
+    try {
+        const status = await api('GET', '/status');
+        const tsDot = document.getElementById('ts-dot');
+        const tsCount = document.getElementById('ts-count');
+        if (status.typeSystem) {
+            tsDot.className = 'status-dot green';
+            tsCount.textContent = status.types + ' types';
+        } else {
+            tsDot.className = 'status-dot red';
+            tsCount.textContent = 'unavailable';
+        }
+
+        const ollamaDot = document.getElementById('ollama-dot');
+        const ollamaStatus = document.getElementById('ollama-status');
+        if (status.translation && status.translation.available) {
+            ollamaDot.className = 'status-dot green';
+            ollamaStatus.textContent = status.translation.model || 'available';
+        } else {
+            ollamaDot.className = 'status-dot red';
+            ollamaStatus.textContent = 'offline';
+        }
+    } catch(e) {
+        document.getElementById('ts-dot').className = 'status-dot red';
+        document.getElementById('ts-count').textContent = 'error';
+    }
+}
+
+// ─── Type Explorer ────────────────────────────────────────────────
+async function loadTypes() {
+    const list = document.getElementById('type-list');
+    list.innerHTML = '<div style="padding:1rem;color:#94a3b8"><span class="loading"></span> Loading types...</div>';
+    try {
+        const types = await api('GET', '/types');
+        document.getElementById('type-total').textContent = '(' + types.length + ')';
+        if (types.length === 0) {
+            list.innerHTML = '<div style="padding:1rem;color:#64748b">No types found. Ensure config/types/ directory contains .json type definitions.</div>';
+        } else {
+            list.innerHTML = types.sort().map(t =>
+                '<div class="type-item" data-type="' + t + '">' + escapeHtml(t) + '</div>'
+            ).join('');
+            list.querySelectorAll('.type-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    list.querySelectorAll('.type-item').forEach(i => i.classList.remove('selected'));
+                    this.classList.add('selected');
+                    loadType(this.dataset.type);
+                });
+            });
+        }
+    } catch(e) {
+        list.innerHTML = '<div style="padding:1rem;color:#dc2626">Failed to load types: ' + escapeHtml(e.message) + '</div>';
+    }
+}
+
+async function loadType(name) {
+    const detail = document.getElementById('type-detail');
+    detail.innerHTML = '<span class="loading"></span> Loading ' + escapeHtml(name) + '...';
+    try {
+        const def = await api('GET', '/types/' + encodeURIComponent(name));
+        if (!def) { detail.innerHTML = '<span style="color:#dc2626">Type not found</span>'; return; }
+        renderTypeDefinition(detail, def);
+    } catch(e) {
+        detail.innerHTML = '<div class="status-msg status-err">' + escapeHtml(e.message) + '</div>';
+    }
+}
+
+function renderTypeDefinition(container, def) {
+    let html = '<div style="margin-bottom:1rem">';
+    html += '<strong style="font-size:1.15rem">' + escapeHtml(def.name) + '</strong> ';
+    if (def.superType) html += '<span class="badge badge-blue">extends ' + escapeHtml(def.superType) + '</span> ';
+    if (def.primitive) html += '<span class="badge badge-green">' + escapeHtml(def.primitiveType || 'primitive') + '</span> ';
+    html += '</div>';
+
+    if (def.fields && def.fields.length > 0) {
+        html += '<div style="margin-bottom:0.5rem"><strong>Fields</strong> <span class="badge badge-gray">' + def.fields.length + '</span></div>';
+
+        // Collect groups summary
+        const allGroups = new Set();
+        def.fields.forEach(f => {
+            if (f.groups) f.groups.forEach(g => allGroups.add(g.name || 'unnamed'));
+        });
+        if (allGroups.size > 0) {
+            html += '<div style="margin-bottom:0.75rem;font-size:0.8rem;color:#64748b">Groups: ';
+            allGroups.forEach(g => { html += '<span class="badge badge-purple" style="margin-right:0.25rem">' + escapeHtml(g) + '</span>'; });
+            html += '</div>';
+        }
+
+        def.fields.forEach(f => {
+            html += '<div class="field-card">';
+            html += '<span class="field-name">' + escapeHtml(f.name) + '</span> ';
+            html += '<span class="badge badge-blue">' + escapeHtml(f.type || '?') + '</span> ';
+            if (f.vector) html += '<span class="badge badge-purple">vector</span> ';
+            if (f.i18n) html += '<span class="badge badge-purple">i18n</span> ';
+            if (f.dynamic) html += '<span class="badge badge-amber">dynamic</span> ';
+
+            // Dynamic info
+            if (f.dynamicInfo) {
+                html += '<div class="dynamic-info">';
+                if (f.dynamicInfo.className) html += 'class: <code>' + escapeHtml(f.dynamicInfo.className) + '</code>';
+                if (f.dynamicInfo.dependsOn && f.dynamicInfo.dependsOn.length > 0) {
+                    html += ' depends on: ' + f.dynamicInfo.dependsOn.map(d => '<code>' + escapeHtml(d) + '</code>').join(', ');
+                }
+                html += '</div>';
+            }
+
+            // Groups
+            if (f.groups && f.groups.length > 0) {
+                f.groups.forEach(g => {
+                    html += '<div class="group-card">';
+                    html += '<strong>' + escapeHtml(g.name || 'unnamed') + '</strong>';
+                    if (g.method) html += ' method: <code>' + escapeHtml(g.method) + '</code>';
+                    if (g.tags && g.tags.length > 0) html += ' | tags: ' + g.tags.map(t => '<span class="badge badge-gray">' + escapeHtml(t) + '</span>').join(' ');
+                    html += '</div>';
+                });
+            }
+            html += '</div>';
+        });
+    } else if (def.primitive) {
+        html += '<div style="color:#64748b;font-style:italic">Primitive type - no fields</div>';
+    } else {
+        html += '<div style="color:#64748b;font-style:italic">No fields defined</div>';
+    }
+
+    // Raw JSON toggle
+    html += '<div style="margin-top:1rem"><button class="btn-secondary" onclick="this.nextElementSibling.classList.toggle(\'hidden\');this.textContent=this.textContent===\'Show Raw JSON\'?\'Hide Raw JSON\':\'Show Raw JSON\'" style="font-size:0.75rem;padding:0.25rem 0.5rem">Show Raw JSON</button>';
+    html += '<pre class="hidden" style="margin-top:0.5rem;font-size:0.75rem;background:#f1f5f9;padding:0.5rem;border-radius:0.25rem;overflow:auto;max-height:300px">' + escapeHtml(pretty(def)) + '</pre></div>';
+
+    container.innerHTML = html;
+}
+
+// ─── Enrich & Validate ────────────────────────────────────────────
+async function enrichDoc() {
+    const inputEl = document.getElementById('enrich-input');
+    const resultEl = document.getElementById('enrich-result');
+    let json;
+    try { json = inputEl.value; JSON.parse(json); } catch(e) { showError('enrich-result', 'Invalid JSON: ' + e.message); return; }
+
+    // Collect selected tags
+    const tags = [];
+    ['basic','segmented','pos','hash','parsed','answers'].forEach(t => {
+        if (document.getElementById('tag-' + t).checked) tags.push(t);
+    });
+
+    showLoading('enrich-result', 'Enriching document...');
+    try {
+        const result = await api('POST', '/enrich', { json: json, tags: tags.join(',') });
+        if (result.error) {
+            resultEl.innerHTML = '<div class="status-msg status-err">' + escapeHtml(result.error) + '</div>';
+            if (result.original) {
+                resultEl.innerHTML += '<label style="margin-top:0.5rem">Original:</label><pre style="font-size:0.75rem">' + escapeHtml(pretty(result.original)) + '</pre>';
+            }
+            return;
+        }
+        let html = '<div class="status-msg status-ok">Enriched successfully (type: ' + escapeHtml(result.typeName || '?') + ', tags: ' + escapeHtml((result.tags || []).join(', ')) + ')</div>';
+        if (result.enriched) {
+            html += '<label>Enriched Document:</label>';
+            html += '<pre style="font-size:0.75rem;margin-top:0.25rem">' + highlightDynamicFields(pretty(result.enriched)) + '</pre>';
+        }
+        resultEl.innerHTML = html;
+    } catch(e) {
+        showError('enrich-result', e.message);
+    }
+}
+
+function highlightDynamicFields(jsonStr) {
+    // Highlight fields that are typically dynamic/enrichment results
+    const dynamicKeys = ['segmented', 'pos', 'clean', 'hash', 'normhash', 'stems', 'spans', 'sentences', 'parsed', 'answers'];
+    let escaped = escapeHtml(jsonStr);
+    dynamicKeys.forEach(key => {
+        const re = new RegExp('(&quot;' + key + '&quot;)', 'g');
+        escaped = escaped.replace(re, '<span class="json-highlight">$1</span>');
+    });
+    return escaped;
+}
+
+async function validateDoc() {
+    const inputEl = document.getElementById('enrich-input');
+    const resultEl = document.getElementById('enrich-result');
+    let parsed;
+    try { parsed = JSON.parse(inputEl.value); } catch(e) { showError('enrich-result', 'Invalid JSON: ' + e.message); return; }
+
+    showLoading('enrich-result', 'Validating document...');
+    try {
+        const result = await api('POST', '/validate', parsed);
+        let html = '';
+        if (result.valid) {
+            html += '<div class="status-msg status-ok">Valid';
+            if (result.typeName) html += ' (type: ' + escapeHtml(result.typeName) + ')';
+            html += '</div>';
+        } else {
+            html += '<div class="status-msg status-err">Validation failed';
+            if (result.typeName) html += ' (type: ' + escapeHtml(result.typeName) + ')';
+            if (result.error) html += ' - ' + escapeHtml(result.error);
+            html += '</div>';
+        }
+        if (result.violations && result.violations.length > 0) {
+            html += '<div style="margin-top:0.75rem"><strong>Violations (' + result.violations.length + '):</strong></div>';
+            result.violations.forEach(v => {
+                const badgeClass = v.level === 'ERROR' ? 'badge-red' : v.level === 'WARNING' ? 'badge-amber' : 'badge-blue';
+                html += '<div style="padding:0.35rem 0;font-size:0.8rem;border-bottom:1px solid #f1f5f9">';
+                html += '<span class="badge ' + badgeClass + '">' + escapeHtml(v.level) + '</span> ';
+                html += '<strong>' + escapeHtml(v.path) + '</strong>: ' + escapeHtml(v.message);
+                html += '</div>';
+            });
+        }
+        resultEl.innerHTML = html;
+    } catch(e) {
+        showError('enrich-result', e.message);
+    }
+}
+
+// ─── NLP Stemming ─────────────────────────────────────────────────
+async function stemText() {
+    const text = document.getElementById('stem-input').value;
+    const lang = document.getElementById('stem-lang').value;
+    if (!text.trim()) { showError('stem-result', 'Please enter text to stem.'); return; }
+
+    showLoading('stem-result', 'Stemming...');
+    try {
+        const result = await api('POST', '/stem', {text: text, language: lang});
+        document.getElementById('stem-result').style.display = 'none';
+        const results = document.getElementById('stem-results');
+        results.style.display = 'grid';
+        document.getElementById('stem-original').textContent = result.original;
+        document.getElementById('stem-stemmed').textContent = result.stemmed;
+    } catch(e) {
+        document.getElementById('stem-results').style.display = 'none';
+        document.getElementById('stem-result').style.display = 'block';
+        showError('stem-result', e.message);
+    }
+}
+
+// ─── Translation ──────────────────────────────────────────────────
+async function checkTranslateStatus() {
+    const bar = document.getElementById('translate-status-bar');
+    bar.style.display = 'block';
+    bar.className = 'status-msg status-info';
+    bar.textContent = 'Checking Ollama status...';
+    try {
+        const status = await api('GET', '/translate/status');
+        if (status.available) {
+            bar.className = 'status-msg status-ok';
+            bar.textContent = 'Ollama is available (model: ' + (status.model || 'unknown') + ', url: ' + (status.url || 'unknown') + ')';
+        } else {
+            bar.className = 'status-msg status-warn';
+            bar.textContent = 'Ollama is not available. ' + (status.error || 'Start Ollama locally for translation support.');
+        }
+    } catch(e) {
+        bar.className = 'status-msg status-err';
+        bar.textContent = 'Failed to check Ollama status: ' + e.message;
+    }
+}
+
+async function translateDoc() {
+    const resultEl = document.getElementById('translate-result');
+    let json;
+    try { json = document.getElementById('translate-input').value; JSON.parse(json); } catch(e) { showError('translate-result', 'Invalid JSON: ' + e.message); return; }
+
+    const mlsFields = document.getElementById('translate-fields').value.split(',').map(s => s.trim()).filter(Boolean);
+    const sourceLang = document.getElementById('translate-source').value;
+    const targetLangs = [];
+    document.querySelectorAll('.target-lang:checked').forEach(cb => targetLangs.push(cb.value));
+
+    if (mlsFields.length === 0) { showError('translate-result', 'Please specify at least one MLS field path.'); return; }
+    if (targetLangs.length === 0) { showError('translate-result', 'Please select at least one target language.'); return; }
+
+    showLoading('translate-result', 'Translating (this may take a moment)...');
+    try {
+        const result = await api('POST', '/translate', {
+            json: json,
+            mlsFields: mlsFields,
+            sourceLanguage: sourceLang,
+            targetLanguages: targetLangs
+        });
+        if (result.error || result.success === false) {
+            resultEl.innerHTML = '<div class="status-msg status-err">' + escapeHtml(result.error || 'Translation failed') + '</div>';
+            return;
+        }
+        let html = '<div class="status-msg status-ok">Translation complete (' + (result.translationTimeMs || '?') + 'ms)</div>';
+        if (result.fieldTranslations) {
+            result.fieldTranslations.forEach(ft => {
+                html += '<div style="margin-top:0.5rem"><strong>' + escapeHtml(ft.fieldPath) + '</strong>';
+                if (ft.error) {
+                    html += ' <span class="badge badge-red">error</span> ' + escapeHtml(ft.error);
+                } else if (ft.translations) {
+                    Object.entries(ft.translations).forEach(([lang, text]) => {
+                        html += '<div style="padding:0.25rem 0.5rem;margin:0.25rem 0;background:#f1f5f9;border-radius:0.25rem;font-size:0.8rem">';
+                        html += '<span class="badge badge-blue">' + escapeHtml(lang) + '</span> ' + escapeHtml(text);
+                        html += '</div>';
+                    });
+                }
+                html += '</div>';
+            });
+        }
+        if (result.translated) {
+            html += '<label style="margin-top:0.75rem">Full Translated Document:</label>';
+            html += '<pre style="font-size:0.75rem;margin-top:0.25rem">' + escapeHtml(pretty(result.translated)) + '</pre>';
+        }
+        resultEl.innerHTML = html;
+    } catch(e) {
+        showError('translate-result', e.message);
+    }
+}
+
+// ─── Documents ────────────────────────────────────────────────────
+async function createDoc() {
+    const json = document.getElementById('doc-input').value;
+    try { JSON.parse(json); } catch(e) { showError('doc-result', 'Invalid JSON: ' + e.message); return; }
+    showLoading('doc-result', 'Creating document...');
+    try {
+        const result = await api('POST', '/documents', json);
+        document.getElementById('doc-result').textContent = pretty(result);
+    } catch(e) {
+        showError('doc-result', e.message);
+    }
+}
+
+async function mergeDocs() {
+    const baseStr = document.getElementById('merge-base').value;
+    const overlayStr = document.getElementById('merge-overlay').value;
+    try { JSON.parse(baseStr); } catch(e) { showError('merge-result', 'Invalid base JSON: ' + e.message); return; }
+    try { JSON.parse(overlayStr); } catch(e) { showError('merge-result', 'Invalid overlay JSON: ' + e.message); return; }
+    showLoading('merge-result', 'Merging...');
+    try {
+        const result = await api('POST', '/merge', {base: JSON.parse(baseStr), overlay: JSON.parse(overlayStr)});
+        document.getElementById('merge-result').textContent = pretty(result);
+    } catch(e) {
+        showError('merge-result', e.message);
+    }
+}
+
+// ─── Init ─────────────────────────────────────────────────────────
+loadStatus();
+loadTypes();
+</script>
+</body>
+</html>

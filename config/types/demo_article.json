@@ -1,0 +1,41 @@
+{
+  "name": "article",
+  "description": "News article or blog post with author, publication info, and content",
+  "super": "sysobject",
+  "fields": [
+    {
+      "name": "author",
+      "type": "core_string"
+    },
+    {
+      "name": "publication",
+      "type": "core_string"
+    },
+    {
+      "name": "published_date",
+      "type": "core_date"
+    },
+    {
+      "name": "category",
+      "type": "core_string",
+      "vector": true
+    },
+    {
+      "name": "tags",
+      "type": "core_string",
+      "vector": true
+    },
+    {
+      "name": "content",
+      "type": "core_mls"
+    },
+    {
+      "name": "excerpt",
+      "type": "core_mls"
+    },
+    {
+      "name": "source_url",
+      "type": "core_url"
+    }
+  ]
+}

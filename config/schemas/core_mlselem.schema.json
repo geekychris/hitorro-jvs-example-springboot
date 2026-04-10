@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "core_mlselem.schema.json",
+  "title": "mlselem",
+  "type": "object",
+  "x-hitorro-name": "mlselem",
+  "x-hitorro-indexseeker": {"class": "iso-language-seeker"},
+  "x-hitorro-fetchlang": true,
+  "properties": {
+    "lang": {
+      "$ref": "core_string.schema.json"
+    },
+    "text": {
+      "$ref": "core_string.schema.json",
+      "x-hitorro-i18n": true
+    },
+    "clean": {
+      "$ref": "core_string.schema.json",
+      "x-hitorro-i18n": true,
+      "x-hitorro-dynamic": {
+        "class": "dynamic-mapper",
+        "mapper": {"class": "html-scrubber"},
+        "fields": [".text"]
+      },
+      "x-hitorro-groups": [
+        {"name": "index", "method": "text", "tags": ["basic"]}
+      ]
+    },
+    "dependency": {
+      "$ref": "core_string.schema.json",
+      "x-hitorro-i18n": true
+    },
+    "clean_normhash": {
+      "type": "array",
+      "items": {"$ref": "core_string.schema.json"},
+      "x-hitorro-dynamic": {
+        "class": "dynamic-mapper",
+        "mapper": {"class": "normalized-text-hash"},
+        "fields": [".clean"]
+      },
+      "x-hitorro-groups": [
+        {"name": "index", "method": "long", "tags": ["basic"]},
+        {"name": "enrich", "method": "text", "tags": ["hash"]}
+      ]
+    },
+    "pos": {
+      "type": "array",
+      "items": {"$ref": "core_string.schema.json"},
+      "x-hitorro-i18n": true,
+      "x-hitorro-dynamic": {
+        "class": "pos-tokenizer",
+        "fields": [".lang", ".clean"],
+        "mapper": {"class": ""}
+      },
+      "x-hitorro-groups": [
+        {"name": "enrich", "method": "text", "tags": ["pos"]}
+      ]
+    },
+    "segmented_span": {
+      "type": "array",
+      "items": {"$ref": "core_string.schema.json"},
+      "x-hitorro-i18n": true,
+      "x-hitorro-dynamic": {
+        "class": "sentence-segmenter-span",
+        "fields": [".lang", ".clean"],
+        "mapper": {"class": ""}
+      },
+      "x-hitorro-groups": [
+        {"name": "index", "method": "text", "tags": ["basic"]},
+        {"name": "enrich", "method": "text", "tags": ["segmented"]}
+      ]
+    },
+    "segmented": {
+      "type": "array",
+      "items": {"$ref": "core_string.schema.json"},
+      "x-hitorro-i18n": true,
+      "x-hitorro-dynamic": {
+        "class": "sentence-segmenter",
+        "fields": [".segmented_span", ".clean"],
+        "mapper": {"class": ""}
+      },
+      "x-hitorro-groups": [
+        {"name": "index", "method": "text", "tags": ["basic"]},
+        {"name": "enrich", "method": "text", "tags": ["segmented"]}
+      ]
+    },
+    "segmented_parsed": {
+      "type": "array",
+      "items": {"$ref": "core_string.schema.json"},
+      "x-hitorro-i18n": true,
+      "x-hitorro-dynamic": {
+        "class": "chunk-mapper",
+        "fields": [".lang", ".segmented"]
+      },
+      "x-hitorro-groups": [
+        {"name": "enrich", "method": "text", "tags": ["parsed"]}
+      ]
+    },
+    "segmented_answers": {
+      "type": "array",
+      "items": {"$ref": "core_string.schema.json"},
+      "x-hitorro-i18n": true,
+      "x-hitorro-dynamic": {
+        "class": "text-classifier",
+        "fields": [".lang", ".segmented"]
+      },
+      "x-hitorro-groups": [
+        {"name": "enrich", "method": "text"},
+        {"name": "enrich", "method": "text", "tags": ["answers"]}
+      ]
+    },
+    "segmented_ner": {
+      "type": "array",
+      "items": {"$ref": "core_string.schema.json"},
+      "x-hitorro-i18n": true,
+      "x-hitorro-dynamic": {
+        "class": "ner-markup",
+        "fields": [".lang", ".segmented"]
+      },
+      "x-hitorro-groups": [
+        {"name": "index", "method": "textmarkup", "tags": ["advanced"]},
+        {"name": "enrich", "method": "text", "tags": ["ner"]}
+      ]
+    },
+    "segmented_normhash": {
+      "type": "array",
+      "items": {"$ref": "core_string.schema.json"},
+      "x-hitorro-dynamic": {
+        "class": "dynamic-mapper",
+        "mapper": {"class": "normalized-text-hash"},
+        "fields": [".segmented"]
+      },
+      "x-hitorro-groups": [
+        {"name": "index", "method": "long", "tags": ["basic"]},
+        {"name": "enrich", "method": "text", "tags": ["hash"]}
+      ]
+    }
+  }
+}

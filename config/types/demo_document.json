@@ -1,0 +1,52 @@
+{
+  "name": "document",
+  "description": "Document management with version control, metadata, and full-text content",
+  "super": "sysobject",
+  "fields": [
+    {
+      "name": "filename",
+      "type": "core_string"
+    },
+    {
+      "name": "file_type",
+      "type": "core_string"
+    },
+    {
+      "name": "file_size",
+      "type": "core_long"
+    },
+    {
+      "name": "version",
+      "type": "core_string"
+    },
+    {
+      "name": "author",
+      "type": "core_string"
+    },
+    {
+      "name": "department",
+      "type": "core_string"
+    },
+    {
+      "name": "content",
+      "type": "core_mls"
+    },
+    {
+      "name": "keywords",
+      "type": "core_string",
+      "vector": true
+    },
+    {
+      "name": "classification",
+      "type": "core_string"
+    },
+    {
+      "name": "checksum",
+      "type": "core_string"
+    },
+    {
+      "name": "download_url",
+      "type": "core_url"
+    }
+  ]
+}
