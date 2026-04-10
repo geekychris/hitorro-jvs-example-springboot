@@ -102,6 +102,23 @@
         /* Side by side */
         .side-by-side { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start; }
 
+        /* JSON Tree Viewer */
+        .json-tree { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 0.8rem; line-height: 1.5; }
+        .json-tree ul { list-style: none; padding-left: 1.2rem; margin: 0; }
+        .json-tree > ul { padding-left: 0; }
+        .json-tree li { position: relative; }
+        .json-tree .jt-toggle { cursor: pointer; user-select: none; display: inline-block; width: 1rem; text-align: center; color: #94a3b8; }
+        .json-tree .jt-toggle:hover { color: #3b82f6; }
+        .json-tree .jt-key { color: #0550ae; font-weight: 500; }
+        .json-tree .jt-key.jt-enriched { color: #d97706; background: #fef3c7; padding: 0 2px; border-radius: 2px; }
+        .json-tree .jt-string { color: #0a3069; }
+        .json-tree .jt-number { color: #0550ae; }
+        .json-tree .jt-bool { color: #cf222e; }
+        .json-tree .jt-null { color: #6e7781; font-style: italic; }
+        .json-tree .jt-bracket { color: #6e7781; }
+        .json-tree .jt-collapsed > ul { display: none; }
+        .json-tree .jt-summary { color: #94a3b8; font-style: italic; font-size: 0.75rem; }
+
         /* Loading spinner */
         .loading { display: inline-block; width: 16px; height: 16px; border: 2px solid #e2e8f0; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 0.5rem; }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -129,7 +146,6 @@
 <div class="tabs" id="tab-bar">
     <div class="tab active" data-tab="types">Type Explorer</div>
     <div class="tab" data-tab="enrich">Enrich &amp; NLP</div>
-    <div class="tab" data-tab="nlp">NLP Tools</div>
     <div class="tab" data-tab="translate">Translation</div>
     <div class="tab" data-tab="docs">Documents</div>
 </div>
@@ -183,6 +199,7 @@
                         <label><input type="checkbox" id="tag-basic" checked> basic</label>
                         <label><input type="checkbox" id="tag-segmented"> segmented</label>
                         <label><input type="checkbox" id="tag-pos"> pos</label>
+                        <label><input type="checkbox" id="tag-ner"> ner</label>
                         <label><input type="checkbox" id="tag-hash"> hash</label>
                         <label><input type="checkbox" id="tag-parsed"> parsed</label>
                         <label><input type="checkbox" id="tag-answers"> answers</label>
@@ -200,52 +217,12 @@ Enrichment adds dynamic fields to MLS text fields:
   - basic: stems
   - segmented: clean text, segmented sentences, spans
   - pos: part-of-speech tags
+  - ner: named entity recognition (person, location, organization, etc.)
   - hash: normhash
   - parsed: dependency parse
   - answers: question answering</div>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <!-- ==================== NLP Tools Tab ==================== -->
-    <div id="tab-nlp" class="hidden">
-        <div class="card">
-            <h2>NLP - Snowball Stemming</h2>
-            <p class="description">
-                Stem text using Snowball stemmers. Supports English, German, French, Spanish, Dutch, Portuguese, Italian, and Swedish.
-            </p>
-            <div style="display:flex;gap:1rem;margin-bottom:1rem;align-items:end;flex-wrap:wrap">
-                <div style="flex:1;min-width:300px">
-                    <label>Text to stem</label>
-                    <input type="text" id="stem-input" value="The dogs were running happily through the beautiful gardens" style="width:100%">
-                </div>
-                <div>
-                    <label>Language</label>
-                    <select id="stem-lang">
-                        <option value="en" selected>English</option>
-                        <option value="de">German</option>
-                        <option value="fr">French</option>
-                        <option value="es">Spanish</option>
-                        <option value="nl">Dutch</option>
-                        <option value="pt">Portuguese</option>
-                        <option value="it">Italian</option>
-                        <option value="sv">Swedish</option>
-                    </select>
-                </div>
-                <button class="btn-primary" onclick="stemText()">Stem</button>
-            </div>
-            <div class="side-by-side" id="stem-results" style="display:none">
-                <div>
-                    <label>Original</label>
-                    <div class="result" id="stem-original" style="min-height:80px"></div>
-                </div>
-                <div>
-                    <label>Stemmed</label>
-                    <div class="result" id="stem-stemmed" style="min-height:80px"></div>
-                </div>
-            </div>
-            <div class="result" id="stem-result" style="min-height:80px">Stemmed text will appear here...</div>
         </div>
     </div>
 
@@ -543,7 +520,7 @@ async function enrichDoc() {
 
     // Collect selected tags
     const tags = [];
-    ['basic','segmented','pos','hash','parsed','answers'].forEach(t => {
+    ['basic','segmented','pos','ner','hash','parsed','answers'].forEach(t => {
         if (document.getElementById('tag-' + t).checked) tags.push(t);
     });
 
@@ -559,8 +536,8 @@ async function enrichDoc() {
         }
         let html = '<div class="status-msg status-ok">Enriched successfully (type: ' + escapeHtml(result.typeName || '?') + ', tags: ' + escapeHtml((result.tags || []).join(', ')) + ')</div>';
         if (result.enriched) {
-            html += '<label>Enriched Document:</label>';
-            html += '<pre style="font-size:0.75rem;margin-top:0.25rem">' + highlightDynamicFields(pretty(result.enriched)) + '</pre>';
+            html += '<label>Enriched Document: <button class="btn-secondary" style="font-size:0.7rem;padding:0.15rem 0.4rem;margin-left:0.5rem" onclick="toggleAllJsonTree(this,true)">Expand All</button> <button class="btn-secondary" style="font-size:0.7rem;padding:0.15rem 0.4rem" onclick="toggleAllJsonTree(this,false)">Collapse All</button></label>';
+            html += '<div class="json-tree" style="margin-top:0.25rem">' + buildJsonTree(result.enriched) + '</div>';
         }
         resultEl.innerHTML = html;
     } catch(e) {
@@ -569,14 +546,64 @@ async function enrichDoc() {
 }
 
 function highlightDynamicFields(jsonStr) {
-    // Highlight fields that are typically dynamic/enrichment results
-    const dynamicKeys = ['segmented', 'pos', 'clean', 'hash', 'normhash', 'stems', 'spans', 'sentences', 'parsed', 'answers'];
+    const dynamicKeys = ['segmented', 'segmented_ner', 'segmented_span', 'segmented_parsed', 'segmented_answers', 'pos', 'clean', 'hash', 'normhash', 'stems', 'spans', 'sentences', 'parsed', 'answers', 'ner', 'dependency'];
     let escaped = escapeHtml(jsonStr);
     dynamicKeys.forEach(key => {
         const re = new RegExp('(&quot;' + key + '&quot;)', 'g');
         escaped = escaped.replace(re, '<span class="json-highlight">$1</span>');
     });
     return escaped;
+}
+
+const ENRICHED_KEYS = new Set(['segmented','segmented_ner','segmented_span','segmented_parsed','segmented_answers','pos','clean','hash','normhash','stems','spans','sentences','parsed','answers','ner','dependency']);
+
+function buildJsonTree(obj, key, depth) {
+    depth = depth || 0;
+    const isEnriched = key && ENRICHED_KEYS.has(key);
+    const keyHtml = key != null ? '<span class="jt-key' + (isEnriched ? ' jt-enriched' : '') + '">"' + escapeHtml(key) + '"</span>: ' : '';
+
+    if (obj === null) return '<li>' + keyHtml + '<span class="jt-null">null</span></li>';
+    if (typeof obj === 'boolean') return '<li>' + keyHtml + '<span class="jt-bool">' + obj + '</span></li>';
+    if (typeof obj === 'number') return '<li>' + keyHtml + '<span class="jt-number">' + obj + '</span></li>';
+    if (typeof obj === 'string') return '<li>' + keyHtml + '<span class="jt-string">"' + escapeHtml(obj) + '"</span></li>';
+
+    const isArray = Array.isArray(obj);
+    const entries = isArray ? obj.map((v, i) => [i, v]) : Object.entries(obj);
+    const open = isArray ? '[' : '{';
+    const close = isArray ? ']' : '}';
+    const count = entries.length;
+
+    if (count === 0) return '<li>' + keyHtml + '<span class="jt-bracket">' + open + close + '</span></li>';
+
+    const collapsed = depth > 1 ? ' jt-collapsed' : '';
+    const arrow = depth > 1 ? '\u25b6' : '\u25bc';
+    let summary = count + (isArray ? ' items' : ' keys');
+
+    let html = '<li class="' + collapsed + '">';
+    html += '<span class="jt-toggle" onclick="this.parentElement.classList.toggle(\'jt-collapsed\');this.textContent=this.textContent===\'\\u25b6\'?\'\\u25bc\':\'\\u25b6\'">' + arrow + '</span> ';
+    html += keyHtml + '<span class="jt-bracket">' + open + '</span>';
+    html += '<span class="jt-summary"> ' + summary + ' </span>';
+    html += '<ul>';
+    for (const [k, v] of entries) {
+        html += buildJsonTree(v, isArray ? null : k, depth + 1);
+    }
+    html += '</ul>';
+    html += '<span class="jt-bracket">' + close + '</span>';
+    html += '</li>';
+    return '<ul>' + html + '</ul>';
+}
+
+function toggleAllJsonTree(btn, expand) {
+    const tree = btn.closest('.card').querySelector('.json-tree');
+    if (!tree) return;
+    tree.querySelectorAll('li').forEach(li => {
+        if (li.querySelector('ul')) {
+            if (expand) li.classList.remove('jt-collapsed');
+            else li.classList.add('jt-collapsed');
+            const toggle = li.querySelector('.jt-toggle');
+            if (toggle) toggle.textContent = expand ? '\u25bc' : '\u25b6';
+        }
+    });
 }
 
 async function validateDoc() {
@@ -616,25 +643,6 @@ async function validateDoc() {
 }
 
 // ─── NLP Stemming ─────────────────────────────────────────────────
-async function stemText() {
-    const text = document.getElementById('stem-input').value;
-    const lang = document.getElementById('stem-lang').value;
-    if (!text.trim()) { showError('stem-result', 'Please enter text to stem.'); return; }
-
-    showLoading('stem-result', 'Stemming...');
-    try {
-        const result = await api('POST', '/stem', {text: text, language: lang});
-        document.getElementById('stem-result').style.display = 'none';
-        const results = document.getElementById('stem-results');
-        results.style.display = 'grid';
-        document.getElementById('stem-original').textContent = result.original;
-        document.getElementById('stem-stemmed').textContent = result.stemmed;
-    } catch(e) {
-        document.getElementById('stem-results').style.display = 'none';
-        document.getElementById('stem-result').style.display = 'block';
-        showError('stem-result', e.message);
-    }
-}
 
 // ─── Translation ──────────────────────────────────────────────────
 async function checkTranslateStatus() {

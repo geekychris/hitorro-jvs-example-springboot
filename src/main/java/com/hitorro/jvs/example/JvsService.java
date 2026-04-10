@@ -56,10 +56,12 @@ public class JvsService {
             String htBin = System.getProperty("HT_BIN", System.getenv("HT_BIN"));
             if (htBin == null) {
                 // Try relative paths from working directory
-                for (String path : new String[]{".", ".."}) {
+                // Check parent first (hitorro root) since the example app also has a local config/types
+                for (String path : new String[]{"..", "."}) {
+                    File dataDir = new File(path, "data");
                     File configDir = new File(path, "config/types");
-                    if (configDir.isDirectory()) {
-                        htBin = new File(path).getAbsolutePath();
+                    if (configDir.isDirectory() && dataDir.isDirectory()) {
+                        htBin = new File(path).getCanonicalPath();
                         break;
                     }
                 }
