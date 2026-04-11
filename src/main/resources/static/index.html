@@ -148,6 +148,7 @@
     <div class="tab" data-tab="enrich">Enrich &amp; NLP</div>
     <div class="tab" data-tab="translate">Translation</div>
     <div class="tab" data-tab="docs">Documents</div>
+    <div class="tab" data-tab="pipeline">NDJSON Pipeline</div>
 </div>
 
 <div class="container">
@@ -325,6 +326,92 @@ Enrichment adds dynamic fields to MLS text fields:
                     <div class="result" id="merge-result" style="min-height:280px">Merged document will appear here...</div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- ==================== NDJSON Pipeline Tab ==================== -->
+    <div id="tab-pipeline" class="hidden">
+        <div class="card">
+            <h2>NDJSON Document Pipeline</h2>
+            <p class="description">
+                Process the <code>data/demo-documents.ndjson</code> dataset through enrichment (NER, segmentation, stemming) and translation pipelines.
+                Compare hitorro iterator/mapper/sink pipelines with Java Streams. Results are written back to NDJSON files.
+            </p>
+            <div style="margin-bottom:1rem">
+                <button class="btn-secondary" onclick="loadDatasetPreview()">Load Dataset Preview</button>
+                <span id="pipeline-dataset-info" style="margin-left:0.75rem;font-size:0.85rem;color:#64748b"></span>
+            </div>
+            <div id="pipeline-dataset-preview" class="result" style="min-height:80px;max-height:200px;display:none"></div>
+        </div>
+
+        <div class="card">
+            <h2>Pipeline Configuration</h2>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
+                <div>
+                    <label>Processing Mode</label>
+                    <select id="pipeline-mode" style="width:100%">
+                        <option value="iterator">Hitorro Iterator / Mapper / Sink</option>
+                        <option value="stream">Java Streams</option>
+                        <option value="iterator-to-stream">Bridge: Iterator -> Stream</option>
+                        <option value="stream-to-sink">Bridge: Stream -> Iterator Sink</option>
+                    </select>
+                    <label style="margin-top:0.75rem">Pipeline Type</label>
+                    <select id="pipeline-type" style="width:100%">
+                        <option value="enrich">Enrich (NER + NLP)</option>
+                        <option value="translate">Translate</option>
+                        <option value="combined">Combined (Enrich + Translate)</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Enrichment Tags</label>
+                    <div class="checkbox-group">
+                        <label><input type="checkbox" class="pipeline-tag" value="basic" checked> basic</label>
+                        <label><input type="checkbox" class="pipeline-tag" value="segmented" checked> segmented</label>
+                        <label><input type="checkbox" class="pipeline-tag" value="ner" checked> ner</label>
+                        <label><input type="checkbox" class="pipeline-tag" value="pos"> pos</label>
+                        <label><input type="checkbox" class="pipeline-tag" value="hash"> hash</label>
+                    </div>
+                    <label style="margin-top:0.75rem">Translation Settings</label>
+                    <div style="display:grid;grid-template-columns:auto 1fr;gap:0.5rem;align-items:center">
+                        <span style="font-size:0.8rem">Source:</span>
+                        <select id="pipeline-source-lang" style="width:100%">
+                            <option value="en" selected>English</option>
+                            <option value="de">German</option>
+                            <option value="fr">French</option>
+                        </select>
+                        <span style="font-size:0.8rem">Targets:</span>
+                        <div class="checkbox-group" style="margin:0">
+                            <label><input type="checkbox" class="pipeline-target-lang" value="de" checked> DE</label>
+                            <label><input type="checkbox" class="pipeline-target-lang" value="es" checked> ES</label>
+                            <label><input type="checkbox" class="pipeline-target-lang" value="fr"> FR</label>
+                            <label><input type="checkbox" class="pipeline-target-lang" value="it"> IT</label>
+                            <label><input type="checkbox" class="pipeline-target-lang" value="ja"> JA</label>
+                            <label><input type="checkbox" class="pipeline-target-lang" value="zh"> ZH</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="btn-group" style="margin-top:1rem">
+                <button class="btn-primary" onclick="runPipeline()" id="pipeline-run-btn">Run Pipeline</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Pipeline Results</h2>
+            <div id="pipeline-status" style="display:none"></div>
+            <div id="pipeline-result" class="result" style="min-height:300px">
+                Pipeline results will appear here. Choose a mode and pipeline type above, then click Run Pipeline.
+
+Modes:
+  - Hitorro Iterator: Uses JSONIterator -> map() -> JvsEnrichMapper -> JsonSink
+  - Java Streams: Uses Stream.map() -> collect() -> writeNdjsonFile()
+  - Iterator -> Stream: Uses JSONIterator.toStream() bridge
+  - Stream -> Iterator Sink: Uses AbstractIterator.fromStream() -> .sink(JsonSink)
+
+Pipelines:
+  - Enrich: Applies NLP enrichment (NER, segmentation, stemming) to all documents
+  - Translate: Translates title and body MLS fields via Ollama
+  - Combined: Enriches first, then translates</div>
         </div>
     </div>
 
@@ -741,6 +828,132 @@ async function mergeDocs() {
     } catch(e) {
         showError('merge-result', e.message);
     }
+}
+
+// ─── NDJSON Pipeline ──────────────────────────────────────────────
+const PIPELINE_API = '/api/jvs/pipeline';
+
+async function loadDatasetPreview() {
+    const info = document.getElementById('pipeline-dataset-info');
+    const preview = document.getElementById('pipeline-dataset-preview');
+    info.textContent = 'Loading...';
+    preview.style.display = 'block';
+    preview.innerHTML = '<span class="loading"></span> Loading dataset...';
+    try {
+        const docs = await api('GET', '/pipeline/dataset');
+        info.textContent = docs.length + ' documents in dataset';
+        let html = '';
+        docs.forEach((doc, i) => {
+            const id = doc.id ? (doc.id.domain + '/' + doc.id.did) : ('doc-' + i);
+            const title = doc.title && doc.title.mls && doc.title.mls[0] ? doc.title.mls[0].text : '(no title)';
+            const dept = doc.department || '';
+            html += '<div style="padding:0.35rem 0;border-bottom:1px solid #f1f5f9;font-size:0.8rem">';
+            html += '<span class="badge badge-blue" style="margin-right:0.5rem">' + escapeHtml(id) + '</span>';
+            if (dept) html += '<span class="badge badge-purple" style="margin-right:0.5rem">' + escapeHtml(dept) + '</span>';
+            const firstLine = title.indexOf('\n') > 0 ? title.substring(0, title.indexOf('\n')) : title;
+            html += escapeHtml(firstLine.substring(0, 100));
+            html += '</div>';
+        });
+        preview.innerHTML = html;
+    } catch(e) {
+        info.textContent = 'Error loading dataset';
+        preview.innerHTML = '<div class="status-msg status-err">' + escapeHtml(e.message) + '</div>';
+    }
+}
+
+async function runPipeline() {
+    const mode = document.getElementById('pipeline-mode').value;
+    const type = document.getElementById('pipeline-type').value;
+    const resultEl = document.getElementById('pipeline-result');
+    const statusEl = document.getElementById('pipeline-status');
+    const btn = document.getElementById('pipeline-run-btn');
+
+    const tags = [];
+    document.querySelectorAll('.pipeline-tag:checked').forEach(cb => tags.push(cb.value));
+    const sourceLang = document.getElementById('pipeline-source-lang').value;
+    const targetLangs = [];
+    document.querySelectorAll('.pipeline-target-lang:checked').forEach(cb => targetLangs.push(cb.value));
+
+    const body = { tags: tags.join(','), sourceLanguage: sourceLang, targetLanguages: targetLangs };
+
+    let endpoint;
+    if (mode === 'iterator-to-stream') {
+        endpoint = '/pipeline/bridge/iterator-to-stream';
+    } else if (mode === 'stream-to-sink') {
+        endpoint = '/pipeline/bridge/stream-to-sink';
+    } else {
+        const modeSegment = mode === 'iterator' ? 'iterator' : 'stream';
+        endpoint = '/pipeline/' + type + '/' + modeSegment;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Running...';
+    statusEl.style.display = 'block';
+    statusEl.className = 'status-msg status-info';
+    statusEl.innerHTML = '<span class="loading"></span> Running ' + type + ' pipeline (' + mode + ' mode)... This may take a moment.';
+    resultEl.innerHTML = '';
+
+    try {
+        const result = await api('POST', endpoint, body);
+        if (result.error) {
+            statusEl.className = 'status-msg status-err';
+            statusEl.textContent = 'Pipeline error: ' + result.error;
+            return;
+        }
+
+        let statusHtml = 'Pipeline complete: <strong>' + escapeHtml(result.pipeline || type) + '</strong>';
+        statusHtml += ' | Mode: <strong>' + escapeHtml(result.mode || mode) + '</strong>';
+        statusHtml += ' | Documents: <strong>' + (result.documentCount || 0) + '</strong>';
+        statusHtml += ' | Time: <strong>' + (result.timeMs || '?') + 'ms</strong>';
+        if (result.outputFile) statusHtml += ' | Output: <code>' + escapeHtml(result.outputFile) + '</code>';
+        if (result.description) statusHtml += '<br><em>' + escapeHtml(result.description) + '</em>';
+        statusEl.className = 'status-msg status-ok';
+        statusEl.innerHTML = statusHtml;
+
+        if (result.documents && result.documents.length > 0) {
+            let html = '<div style="margin-bottom:0.5rem"><strong>Processed Documents (' + result.documents.length + '):</strong>';
+            html += ' <button class="btn-secondary" style="font-size:0.7rem;padding:0.15rem 0.4rem;margin-left:0.5rem" onclick="toggleAllPipelineDocs(true)">Expand All</button>';
+            html += ' <button class="btn-secondary" style="font-size:0.7rem;padding:0.15rem 0.4rem" onclick="toggleAllPipelineDocs(false)">Collapse All</button>';
+            html += '</div>';
+
+            result.documents.forEach((doc, i) => {
+                const id = doc.id ? (doc.id.domain + '/' + doc.id.did) : ('doc-' + i);
+                const titleMls = doc.title && doc.title.mls && doc.title.mls[0] ? doc.title.mls[0].text.split('\n')[0] : '(no title)';
+                html += '<div class="pipeline-doc-entry" style="margin-bottom:0.5rem;border:1px solid #e2e8f0;border-radius:0.375rem;overflow:hidden">';
+                html += '<div style="padding:0.5rem 0.75rem;background:#f8fafc;cursor:pointer;display:flex;align-items:center;gap:0.5rem" onclick="this.nextElementSibling.classList.toggle(\'hidden\')">';
+                html += '<span style="color:#94a3b8">&#9654;</span> ';
+                html += '<span class="badge badge-blue">' + escapeHtml(id) + '</span> ';
+                html += '<span style="font-size:0.8rem">' + escapeHtml(titleMls.substring(0, 80)) + '</span>';
+                if (doc.title && doc.title.mls && doc.title.mls.length > 1) {
+                    html += ' <span class="badge badge-green">' + doc.title.mls.length + ' langs</span>';
+                }
+                html += '</div>';
+                html += '<div class="hidden" style="padding:0.5rem 0.75rem;max-height:400px;overflow:auto">';
+                html += '<div class="json-tree">' + buildJsonTree(doc) + '</div>';
+                html += '</div>';
+                html += '</div>';
+            });
+            resultEl.innerHTML = html;
+        } else {
+            resultEl.innerHTML = '<pre>' + escapeHtml(pretty(result)) + '</pre>';
+        }
+    } catch(e) {
+        statusEl.className = 'status-msg status-err';
+        statusEl.textContent = 'Error: ' + e.message;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Run Pipeline';
+    }
+}
+
+function toggleAllPipelineDocs(expand) {
+    document.querySelectorAll('.pipeline-doc-entry').forEach(entry => {
+        const content = entry.querySelector('div:nth-child(2)');
+        if (content) {
+            if (expand) content.classList.remove('hidden');
+            else content.classList.add('hidden');
+        }
+    });
 }
 
 // ─── Init ─────────────────────────────────────────────────────────

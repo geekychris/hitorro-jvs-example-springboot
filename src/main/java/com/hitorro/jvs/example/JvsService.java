@@ -290,14 +290,22 @@ public class JvsService {
             result.put("sourceLanguage", sourceLang);
             result.put("targetLanguages", targetLangs);
 
-            List<Map<String, Object>> fieldTranslations = new ArrayList<>();
-            for (String fieldPath : mlsFields) {
-                Map<String, Object> ft = translateMlsField(doc, fieldPath, sourceLang, targetLangs);
-                fieldTranslations.add(ft);
-            }
+            // Build MLS field paths (e.g. "title" -> "title.mls")
+            List<String> mlsFieldPaths = mlsFields.stream()
+                    .map(f -> f.endsWith(".mls") ? f : f + ".mls")
+                    .toList();
+
+            com.hitorro.jsontypesystem.JVS2JVSTranslationMapper mapper =
+                    com.hitorro.jsontypesystem.JVS2JVSTranslationMapper.builder()
+                    .translator(this::callOllamaTranslate)
+                    .sourceLanguage(sourceLang)
+                    .targetLanguages(targetLangs)
+                    .mlsFields(mlsFieldPaths)
+                    .build();
+
+            mapper.apply(doc);
 
             result.put("translated", doc.getJsonNode());
-            result.put("fieldTranslations", fieldTranslations);
             result.put("success", true);
         } catch (Exception e) {
             log.error("Translation failed", e);
@@ -308,52 +316,7 @@ public class JvsService {
         return result;
     }
 
-    private Map<String, Object> translateMlsField(JVS doc, String fieldPath, String sourceLang, List<String> targetLangs) {
-        Map<String, Object> ft = new LinkedHashMap<>();
-        ft.put("fieldPath", fieldPath);
-        try {
-            String mlsPath = fieldPath + ".mls";
-            JsonNode mlsNode = doc.get(mlsPath);
-            if (mlsNode == null || !mlsNode.isArray()) {
-                ft.put("error", "MLS array not found at " + mlsPath);
-                return ft;
-            }
-
-            // Find source text
-            String sourceText = null;
-            for (int i = 0; i < mlsNode.size(); i++) {
-                String lang = doc.getString(mlsPath + "[" + i + "].lang");
-                if (sourceLang.equals(lang)) {
-                    sourceText = doc.getString(mlsPath + "[" + i + "].text");
-                    break;
-                }
-            }
-            if (sourceText == null) {
-                ft.put("error", "Source text for lang '" + sourceLang + "' not found");
-                return ft;
-            }
-            ft.put("sourceText", sourceText);
-
-            // Translate to each target language
-            Map<String, String> translations = new LinkedHashMap<>();
-            for (String targetLang : targetLangs) {
-                if (targetLang.equals(sourceLang)) continue;
-                String translated = callOllamaTranslate(sourceText, sourceLang, targetLang);
-                translations.put(targetLang, translated);
-
-                // Add to MLS array
-                int idx = mlsNode.size();
-                doc.set(mlsPath + "[" + idx + "].lang", targetLang);
-                doc.set(mlsPath + "[" + idx + "].text", translated);
-            }
-            ft.put("translations", translations);
-        } catch (Exception e) {
-            ft.put("error", e.getMessage());
-        }
-        return ft;
-    }
-
-    private String callOllamaTranslate(String text, String sourceLang, String targetLang) {
+    String callOllamaTranslate(String text, String sourceLang, String targetLang) {
         try {
             String langName = getLanguageName(targetLang);
             String prompt = "Translate the following text from " + getLanguageName(sourceLang) +
