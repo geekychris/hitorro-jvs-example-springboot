@@ -135,11 +135,12 @@
 <div class="header">
     <div class="header-left">
         <h1>HiTorro JVS Explorer</h1>
-        <span class="subtitle">JSON Type System -- NLP -- Enrichment -- Translation</span>
+        <span class="subtitle">JSON Type System -- NLP -- Enrichment -- Search -- KVStore -- Viewer</span>
     </div>
     <div class="status-indicators" id="status-indicators">
         <span class="status-label"><span class="status-dot yellow" id="ts-dot"></span> Types: <span id="ts-count">...</span></span>
         <span class="status-label"><span class="status-dot yellow" id="ollama-dot"></span> Ollama: <span id="ollama-status">...</span></span>
+        <span class="status-label"><span class="status-dot yellow" id="search-dot"></span> Index: <span id="search-status">...</span></span>
     </div>
 </div>
 
@@ -149,6 +150,8 @@
     <div class="tab" data-tab="translate">Translation</div>
     <div class="tab" data-tab="docs">Documents</div>
     <div class="tab" data-tab="pipeline">NDJSON Pipeline</div>
+    <div class="tab" data-tab="search">Search</div>
+    <div class="tab" data-tab="viewer">Index Viewer</div>
 </div>
 
 <div class="container">
@@ -176,10 +179,50 @@
                 </div>
             </div>
         </div>
+
     </div>
 
     <!-- ==================== Enrich & NLP Tab ==================== -->
     <div id="tab-enrich" class="hidden">
+        <div class="card">
+            <h2>Propaccess - JVS Path Navigator</h2>
+            <p class="description">
+                Navigate into a JVS document using dot-notation paths (e.g. <code>id.did</code>, <code>title.mls[0].text</code>).
+                Dynamic fields are computed transparently by the JVS type system when accessed.
+            </p>
+            <div class="grid">
+                <div>
+                    <label>JVS Document (JSON)</label>
+                    <textarea id="pa-input" style="min-height:200px">{
+  "type": "demo_document",
+  "id": {"domain": "demo", "did": "doc-001"},
+  "title": {"mls": [{"lang": "en", "text": "The quick brown fox jumped over the lazy dogs."}]},
+  "body": {"mls": [{"lang": "en", "text": "Natural language processing enables computers to understand human language."}]}
+}</textarea>
+                    <div style="display:flex;gap:0.5rem;align-items:end;margin-top:0.75rem">
+                        <div style="flex:1">
+                            <label>Path</label>
+                            <input type="text" id="pa-path" placeholder="e.g. id.did, title.mls[0].text, id.id (dynamic)" style="width:100%" value="title.mls[0].text">
+                        </div>
+                        <button class="btn-primary" onclick="propaccess()">Get Value</button>
+                    </div>
+                    <div style="margin-top:0.5rem">
+                        <span style="font-size:0.75rem;color:#64748b">Try: </span>
+                        <button class="btn-secondary" style="font-size:0.7rem;padding:0.15rem 0.4rem" onclick="document.getElementById('pa-path').value='id.did';propaccess()">id.did</button>
+                        <button class="btn-secondary" style="font-size:0.7rem;padding:0.15rem 0.4rem" onclick="document.getElementById('pa-path').value='id.id';propaccess()">id.id (dynamic)</button>
+                        <button class="btn-secondary" style="font-size:0.7rem;padding:0.15rem 0.4rem" onclick="document.getElementById('pa-path').value='title.mls[0].text';propaccess()">title.mls[0].text</button>
+                        <button class="btn-secondary" style="font-size:0.7rem;padding:0.15rem 0.4rem" onclick="document.getElementById('pa-path').value='title.mls[0].clean';propaccess()">title.mls[0].clean (dynamic)</button>
+                        <button class="btn-secondary" style="font-size:0.7rem;padding:0.15rem 0.4rem" onclick="document.getElementById('pa-path').value='title.mls';propaccess()">title.mls</button>
+                        <button class="btn-secondary" style="font-size:0.7rem;padding:0.15rem 0.4rem" onclick="document.getElementById('pa-path').value='id';propaccess()">id</button>
+                    </div>
+                </div>
+                <div>
+                    <label>Result</label>
+                    <div class="result" id="pa-result" style="min-height:200px">Enter a path and click Get Value...</div>
+                </div>
+            </div>
+        </div>
+
         <div class="card">
             <h2>Enrich &amp; Validate JVS Documents</h2>
             <p class="description">
@@ -261,8 +304,8 @@ Enrichment adds dynamic fields to MLS text fields:
                     <div style="margin-top:0.75rem">
                         <label>Target languages</label>
                         <div class="checkbox-group">
-                            <label><input type="checkbox" class="target-lang" value="de" checked> German</label>
-                            <label><input type="checkbox" class="target-lang" value="es" checked> Spanish</label>
+                            <label><input type="checkbox" class="target-lang" value="de"> German</label>
+                            <label><input type="checkbox" class="target-lang" value="es"> Spanish</label>
                             <label><input type="checkbox" class="target-lang" value="fr"> French</label>
                             <label><input type="checkbox" class="target-lang" value="it"> Italian</label>
                             <label><input type="checkbox" class="target-lang" value="pt"> Portuguese</label>
@@ -415,6 +458,191 @@ Pipelines:
         </div>
     </div>
 
+    <!-- ==================== Search Tab ==================== -->
+    <div id="tab-search" class="hidden">
+        <div class="card">
+            <h2>Translate &rarr; Enrich &rarr; Index Pipeline</h2>
+            <p class="description">
+                Pipeline: Load dataset &rarr; Translate MLS fields to target languages (Ollama) &rarr;
+                Enrich with NLP (segmentation, NER, stemming) across all languages &rarr;
+                Store in RocksDB KVStore + Index in Lucene.
+                The index stores only projected fields for search; full documents are retrieved from the KV store.
+            </p>
+
+            <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:0.75rem">
+                <div style="flex:1;min-width:250px">
+                    <label>Enrichment Tags</label>
+                    <div class="checkbox-group">
+                        <label><input type="checkbox" class="enrich-tag" value="basic" checked> basic</label>
+                        <label><input type="checkbox" class="enrich-tag" value="segmented" checked> segmented</label>
+                        <label><input type="checkbox" class="enrich-tag" value="ner" checked> ner</label>
+                        <label><input type="checkbox" class="enrich-tag" value="pos"> pos</label>
+                        <label><input type="checkbox" class="enrich-tag" value="hash"> hash</label>
+                        <label><input type="checkbox" class="enrich-tag" value="parsed"> parsed</label>
+                    </div>
+                </div>
+                <div style="flex:1;min-width:250px">
+                    <label>Translate to (Ollama &mdash; runs before enrichment)</label>
+                    <div class="checkbox-group">
+                        <label><input type="checkbox" class="target-lang" value="de"> de (German)</label>
+                        <label><input type="checkbox" class="target-lang" value="es"> es (Spanish)</label>
+                        <label><input type="checkbox" class="target-lang" value="fr"> fr (French)</label>
+                        <label><input type="checkbox" class="target-lang" value="it"> it (Italian)</label>
+                        <label><input type="checkbox" class="target-lang" value="nl"> nl (Dutch)</label>
+                        <label><input type="checkbox" class="target-lang" value="pt"> pt (Portuguese)</label>
+                        <label><input type="checkbox" class="target-lang" value="ja"> ja (Japanese)</label>
+                        <label><input type="checkbox" class="target-lang" value="zh"> zh (Chinese)</label>
+                    </div>
+                </div>
+            </div>
+            <div class="btn-group">
+                <button class="btn-green" onclick="indexDataset()" id="index-btn">Translate &rarr; Enrich &rarr; Index Dataset</button>
+                <button class="btn-secondary" onclick="document.querySelectorAll('.enrich-tag').forEach(c=>c.checked=false);document.querySelectorAll('.target-lang').forEach(c=>c.checked=false);indexDataset()">Index Raw (no enrichment)</button>
+            </div>
+            <div id="index-status" style="display:none"></div>
+        </div>
+
+        <div class="card">
+            <h2>Query Builder - Indexed Fields</h2>
+            <p class="description">
+                The type system's Lucene projection maps JVS fields to Lucene field names using the dotted path syntax.
+                Select a type to see its indexed fields. Click a field path to insert it into the query.
+                The language affects i18n text fields (e.g. <code>text_en_s</code> vs <code>text_de_s</code>).
+            </p>
+            <div style="display:flex;gap:0.75rem;align-items:end;flex-wrap:wrap;margin-bottom:0.75rem">
+                <div>
+                    <label>Type</label>
+                    <select id="qb-type" onchange="loadIndexedFields()" style="min-width:180px">
+                        <option value="demo_document" selected>demo_document</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Language</label>
+                    <select id="search-lang" onchange="loadIndexedFields()" style="min-width:80px">
+                        <option value="en" selected>en</option>
+                        <option value="de">de</option>
+                        <option value="es">es</option>
+                        <option value="fr">fr</option>
+                        <option value="it">it</option>
+                        <option value="nl">nl</option>
+                        <option value="pt">pt</option>
+                        <option value="ja">ja</option>
+                        <option value="zh">zh</option>
+                    </select>
+                </div>
+            </div>
+            <div id="qb-fields" style="max-height:250px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:0.375rem;font-size:0.8rem">
+                <div style="color:#94a3b8;padding:0.5rem">Loading indexed fields...</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Search Documents</h2>
+            <p class="description">
+                Use the field paths from the query builder above.
+                The query parser resolves dotted paths (e.g. <code>title.mls.clean</code>) to physical Lucene field names.
+                Fields must include the full path down to the sub-field that has an index group.
+            </p>
+            <div style="display:flex;gap:0.75rem;align-items:end;flex-wrap:wrap;margin-bottom:0.75rem">
+                <div style="flex:1;min-width:250px">
+                    <label>Query</label>
+                    <input type="text" id="search-query" placeholder="e.g. title.mls.clean:climate" style="width:100%" value="*:*">
+                </div>
+                <div>
+                    <label>Offset</label>
+                    <input type="text" id="search-offset" value="0" style="width:60px">
+                </div>
+                <div>
+                    <label>Limit</label>
+                    <input type="text" id="search-limit" value="10" style="width:60px">
+                </div>
+                <button class="btn-primary" onclick="searchDocuments()" id="search-btn">Search</button>
+            </div>
+            <div style="display:flex;gap:2rem;flex-wrap:wrap;margin-bottom:1rem">
+                <div>
+                    <label>Facets</label>
+                    <div class="checkbox-group">
+                        <label><input type="checkbox" class="search-facet" value="department" checked> department</label>
+                        <label><input type="checkbox" class="search-facet" value="classification" checked> classification</label>
+                        <label><input type="checkbox" class="search-facet" value="author"> author</label>
+                    </div>
+                </div>
+                <div>
+                    <label>Result Source</label>
+                    <div class="checkbox-group">
+                        <label style="display:inline-flex;align-items:center;gap:0.35rem">
+                            <input type="checkbox" id="use-kvstore" checked>
+                            <span>Fetch from KV Store (full translated + enriched docs)</span>
+                            <span id="kvstore-badge" class="badge badge-purple" style="font-size:0.65rem">KV</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div id="search-result-status" style="display:none"></div>
+            <div id="search-facets"></div>
+            <div id="search-results" class="result" style="min-height:200px">
+                Index the dataset first, then enter a query and click Search.
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== Index Viewer Tab ==================== -->
+    <div id="tab-viewer" class="hidden">
+        <div class="card">
+            <h2>Lucene Index Viewer</h2>
+            <p class="description">
+                Inspect the Lucene index internals: statistics, fields, stored documents, and term frequencies.
+                Index documents first via the Search tab.
+            </p>
+            <div class="btn-group">
+                <button class="btn-primary" onclick="viewerStats()">Index Stats</button>
+                <button class="btn-primary" onclick="viewerFields()">List Fields</button>
+                <button class="btn-primary" onclick="viewerDocs()">List Documents</button>
+            </div>
+            <div id="viewer-result" class="result" style="min-height:300px">
+                Click a button above to inspect the Lucene index.
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Term Browser</h2>
+            <p class="description">Browse terms in a specific field. Select a field from the list above first.</p>
+            <div style="display:flex;gap:0.75rem;align-items:end;margin-bottom:0.75rem">
+                <div style="flex:1">
+                    <label>Field Name</label>
+                    <input type="text" id="viewer-term-field" placeholder="e.g. title.mls.clean.text_en_s" style="width:100%">
+                </div>
+                <div>
+                    <label>Limit</label>
+                    <input type="text" id="viewer-term-limit" value="50" style="width:60px">
+                </div>
+                <button class="btn-primary" onclick="viewerTerms()">Browse Terms</button>
+            </div>
+            <div id="viewer-terms-result" class="result" style="min-height:200px">
+                Enter a field name and click Browse Terms.
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>KVStore Document Fetch</h2>
+            <p class="description">Fetch the full document from the RocksDB KVStore by ID (domain/did).</p>
+            <div style="display:flex;gap:0.75rem;align-items:end;margin-bottom:0.75rem">
+                <div>
+                    <label>Domain</label>
+                    <input type="text" id="kv-domain" value="legal" style="width:120px">
+                </div>
+                <div>
+                    <label>Document ID</label>
+                    <input type="text" id="kv-did" value="doc-001" style="width:120px">
+                </div>
+                <button class="btn-primary" onclick="kvFetch()">Fetch Document</button>
+            </div>
+            <div id="kv-result" class="result" style="min-height:200px">
+                Enter domain and document ID, then click Fetch.
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <script>
@@ -432,6 +660,8 @@ document.querySelectorAll('.tab').forEach(tab => {
         this.classList.add('active');
         if (name === 'types' && !document.getElementById('type-list').innerHTML) loadTypes();
         if (name === 'translate') checkTranslateStatus();
+        if (name === 'search') { checkSearchStatus(); loadIndexedFields(); }
+        if (name === 'viewer') { /* fields loaded on demand */ }
     });
 });
 
@@ -692,6 +922,49 @@ function toggleAllJsonTree(btn, expand) {
         }
     });
 }
+
+// ─── Propaccess Path Navigator ────────────────────────────────────
+
+async function propaccess() {
+    const inputEl = document.getElementById('pa-input');
+    const pathEl = document.getElementById('pa-path');
+    const resultEl = document.getElementById('pa-result');
+    const path = pathEl.value.trim();
+    if (!path) { showError('pa-result', 'Enter a path'); return; }
+    let parsed;
+    try { parsed = JSON.parse(inputEl.value); } catch(e) { showError('pa-result', 'Invalid JSON: ' + e.message); return; }
+    try {
+        const result = await api('POST', '/propaccess', { json: parsed, path: path });
+        if (result.error) {
+            resultEl.innerHTML = '<div class="status-msg status-err">' + escapeHtml(result.error) + '</div>';
+            return;
+        }
+        let html = '<div style="margin-bottom:0.75rem">';
+        html += '<span class="badge badge-blue">path: ' + escapeHtml(result.path) + '</span> ';
+        if (result.typeName) html += '<span class="badge badge-purple">type: ' + escapeHtml(result.typeName) + '</span> ';
+        if (result.nodeType) html += '<span class="badge badge-gray">' + escapeHtml(result.nodeType) + '</span> ';
+        html += result.found ? '<span class="badge badge-green">found</span>' : '<span class="badge badge-red">not found</span>';
+        html += '</div>';
+        if (result.found && result.value !== null) {
+            if (typeof result.value === 'object') {
+                html += '<div class="json-tree">' + buildJsonTree(result.value) + '</div>';
+            } else {
+                html += '<div style="font-size:1.1rem;font-weight:600;padding:0.5rem;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:0.375rem">' + escapeHtml(String(result.value)) + '</div>';
+            }
+        } else if (!result.found) {
+            html += '<div style="color:#94a3b8">No value at this path.</div>';
+        }
+        resultEl.innerHTML = html;
+    } catch(e) {
+        showError('pa-result', e.message);
+    }
+}
+
+// Allow Enter key for propaccess
+document.addEventListener('DOMContentLoaded', function() {
+    const paInput = document.getElementById('pa-path');
+    if (paInput) paInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') propaccess(); });
+});
 
 async function validateDoc() {
     const inputEl = document.getElementById('enrich-input');
@@ -956,9 +1229,389 @@ function toggleAllPipelineDocs(expand) {
     });
 }
 
+// ─── Search ───────────────────────────────────────────────────────
+
+async function loadIndexedFields() {
+    const typeName = document.getElementById('qb-type').value;
+    const lang = document.getElementById('search-lang').value;
+    const container = document.getElementById('qb-fields');
+    container.innerHTML = '<div style="color:#94a3b8;padding:0.5rem"><span class="loading"></span> Loading...</div>';
+    try {
+        const fields = await api('GET', '/search/fields/' + encodeURIComponent(typeName) + '?lang=' + lang);
+        if (!fields || fields.length === 0) {
+            container.innerHTML = '<div style="color:#94a3b8;padding:0.5rem">No indexed fields found for this type.</div>';
+            return;
+        }
+        let html = '<table style="width:100%;border-collapse:collapse">';
+        html += '<tr style="background:#f1f5f9;font-weight:600;font-size:0.75rem"><td style="padding:0.35rem 0.5rem">Field Path (click to use)</td><td style="padding:0.35rem 0.5rem">Method</td><td style="padding:0.35rem 0.5rem">Physical Name</td><td style="padding:0.35rem 0.5rem">Flags</td></tr>';
+        fields.forEach(f => {
+            html += '<tr style="border-top:1px solid #f1f5f9;cursor:pointer" onclick="insertFieldInQuery(\'' + escapeHtml(f.fieldPath) + '\')" title="Click to insert into query">';
+            html += '<td style="padding:0.35rem 0.5rem;color:#1d4ed8;font-weight:500">' + escapeHtml(f.fieldPath) + '</td>';
+            html += '<td style="padding:0.35rem 0.5rem"><span class="badge badge-blue">' + escapeHtml(f.method) + '</span></td>';
+            html += '<td style="padding:0.35rem 0.5rem;font-family:monospace;font-size:0.75rem;color:#64748b">' + escapeHtml(f.physicalName) + '</td>';
+            html += '<td style="padding:0.35rem 0.5rem">';
+            if (f.i18n) html += '<span class="badge badge-green" style="margin-right:0.2rem">i18n</span>';
+            if (f.tokenized) html += '<span class="badge badge-purple" style="margin-right:0.2rem">tokenized</span>';
+            if (f.dynamic) html += '<span class="badge badge-amber" style="margin-right:0.2rem">dynamic</span>';
+            html += '</td></tr>';
+        });
+        html += '</table>';
+        container.innerHTML = html;
+    } catch(e) {
+        container.innerHTML = '<div class="status-msg status-err">' + escapeHtml(e.message) + '</div>';
+    }
+}
+
+function insertFieldInQuery(fieldPath) {
+    const input = document.getElementById('search-query');
+    const current = input.value.trim();
+    if (current === '*:*' || current === '') {
+        input.value = fieldPath + ':';
+    } else {
+        input.value = current + ' AND ' + fieldPath + ':';
+    }
+    input.focus();
+}
+
+async function populateTypeSelector() {
+    try {
+        const types = await api('GET', '/types');
+        const select = document.getElementById('qb-type');
+        select.innerHTML = '';
+        types.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t;
+            opt.textContent = t;
+            if (t === 'demo_document') opt.selected = true;
+            select.appendChild(opt);
+        });
+    } catch(e) { /* keep default */ }
+}
+
+async function checkSearchStatus() {
+    try {
+        const status = await api('GET', '/search/status');
+        const dot = document.getElementById('search-dot');
+        const label = document.getElementById('search-status');
+        if (status.indexed) {
+            dot.className = 'status-dot green';
+            label.textContent = 'ready';
+        } else {
+            dot.className = 'status-dot yellow';
+            label.textContent = 'not indexed';
+        }
+    } catch(e) {
+        document.getElementById('search-dot').className = 'status-dot red';
+        document.getElementById('search-status').textContent = 'error';
+    }
+}
+
+async function indexDataset() {
+    const btn = document.getElementById('index-btn');
+    const statusEl = document.getElementById('index-status');
+    btn.disabled = true;
+    btn.textContent = 'Indexing...';
+    statusEl.style.display = 'block';
+    statusEl.className = 'status-msg status-info';
+    const enrichTags = [];
+    document.querySelectorAll('.enrich-tag:checked').forEach(cb => enrichTags.push(cb.value));
+    const tagsStr = enrichTags.join(',');
+    const targetLangs = [];
+    document.querySelectorAll('.target-lang:checked').forEach(cb => targetLangs.push(cb.value));
+    const langsStr = targetLangs.join(',');
+
+    let progressMsg = '';
+    if (langsStr && tagsStr) progressMsg = 'Translating (' + langsStr + '), enriching (' + tagsStr + ') and indexing...';
+    else if (langsStr) progressMsg = 'Translating (' + langsStr + ') and indexing...';
+    else if (tagsStr) progressMsg = 'Enriching (' + tagsStr + ') and indexing...';
+    else progressMsg = 'Indexing raw dataset...';
+    statusEl.innerHTML = '<span class="loading"></span> ' + progressMsg;
+
+    try {
+        const body = {};
+        if (tagsStr) body.enrichTags = tagsStr;
+        if (langsStr) body.targetLangs = langsStr;
+        const result = await api('POST', '/search/index', body);
+        if (result.error) {
+            statusEl.className = 'status-msg status-err';
+            statusEl.textContent = 'Error: ' + result.error;
+            return;
+        }
+        let html = 'Indexed <strong>' + result.documentCount + '</strong> documents';
+        html += ' in <strong>' + result.indexTimeMs + 'ms</strong>';
+        if (result.typeAware) html += ' | Type: <span class="badge badge-blue">' + escapeHtml(result.typeName) + '</span>';
+        else html += ' | <span class="badge badge-amber">no type mapping</span>';
+        if (result.translated) html += ' | Translated: <span class="badge badge-amber">' + escapeHtml(result.targetLangs) + ' (' + result.translatedCount + ' docs)</span>';
+        if (result.enriched) html += ' | Enriched: <span class="badge badge-green">' + escapeHtml(result.enrichTags) + '</span>';
+        if (result.storedInKV > 0) html += ' | KVStore: <span class="badge badge-purple">' + result.storedInKV + ' docs</span>';
+        statusEl.className = 'status-msg status-ok';
+        statusEl.innerHTML = html;
+        checkSearchStatus();
+    } catch(e) {
+        statusEl.className = 'status-msg status-err';
+        statusEl.textContent = 'Error: ' + e.message;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Translate \u2192 Enrich \u2192 Index Dataset';
+    }
+}
+
+async function searchDocuments() {
+    const query = document.getElementById('search-query').value.trim();
+    if (!query) return;
+
+    const offset = parseInt(document.getElementById('search-offset').value) || 0;
+    const limit = parseInt(document.getElementById('search-limit').value) || 10;
+    const facets = [];
+    document.querySelectorAll('.search-facet:checked').forEach(cb => facets.push(cb.value));
+
+    const btn = document.getElementById('search-btn');
+    const statusEl = document.getElementById('search-result-status');
+    const resultsEl = document.getElementById('search-results');
+    const facetsEl = document.getElementById('search-facets');
+
+    btn.disabled = true;
+    btn.textContent = 'Searching...';
+    statusEl.style.display = 'block';
+    statusEl.className = 'status-msg status-info';
+    statusEl.innerHTML = '<span class="loading"></span> Searching...';
+    facetsEl.innerHTML = '';
+
+    try {
+        const lang = document.getElementById('search-lang').value;
+        const useKvStore = document.getElementById('use-kvstore').checked;
+        let url = '/search?q=' + encodeURIComponent(query) + '&offset=' + offset + '&limit=' + limit + '&lang=' + lang;
+        if (useKvStore) url += '&useKvStore=true';
+        facets.forEach(f => url += '&facets=' + encodeURIComponent(f));
+        const result = await api('GET', url);
+
+        if (result.error) {
+            statusEl.className = 'status-msg status-err';
+            statusEl.textContent = result.error;
+            resultsEl.innerHTML = '';
+            return;
+        }
+
+        // Source badge
+        const sourceBadge = result.source === 'kvstore'
+            ? '<span class="badge badge-purple">Source: KV Store</span>'
+            : '<span class="badge badge-blue">Source: Index</span>';
+
+        // Status bar
+        statusEl.className = 'status-msg status-ok';
+        statusEl.innerHTML = 'Found <strong>' + result.totalHits + '</strong> documents'
+            + ' in <strong>' + result.searchTimeMs + 'ms</strong>'
+            + ' | Query: <code>' + escapeHtml(result.query) + '</code>'
+            + ' | Showing ' + result.offset + '-' + (result.offset + (result.documents ? result.documents.length : 0))
+            + ' | ' + sourceBadge;
+
+        // Facets
+        if (result.facets) {
+            let fhtml = '<div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">';
+            for (const [dim, facet] of Object.entries(result.facets)) {
+                fhtml += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:0.375rem;padding:0.5rem 0.75rem">';
+                fhtml += '<div style="font-weight:600;font-size:0.8rem;margin-bottom:0.35rem">' + escapeHtml(dim) + '</div>';
+                if (facet.values && facet.values.length > 0) {
+                    facet.values.forEach(fv => {
+                        fhtml += '<span class="badge badge-purple" style="margin:0.1rem">' + escapeHtml(fv.value) + ' (' + fv.count + ')</span> ';
+                    });
+                } else {
+                    fhtml += '<span style="font-size:0.75rem;color:#94a3b8">no facet data</span>';
+                }
+                fhtml += '</div>';
+            }
+            fhtml += '</div>';
+            facetsEl.innerHTML = fhtml;
+        }
+
+        // Documents
+        if (result.documents && result.documents.length > 0) {
+            let html = '<div style="margin-bottom:0.5rem"><strong>Results (' + result.documents.length + '):</strong>';
+            html += ' <button class="btn-secondary" style="font-size:0.7rem;padding:0.15rem 0.4rem;margin-left:0.5rem" onclick="toggleAllSearchDocs(true)">Expand All</button>';
+            html += ' <button class="btn-secondary" style="font-size:0.7rem;padding:0.15rem 0.4rem" onclick="toggleAllSearchDocs(false)">Collapse All</button>';
+            html += '</div>';
+
+            result.documents.forEach((doc, i) => {
+                const id = doc.id ? (doc.id.domain + '/' + doc.id.did) : ('doc-' + i);
+                const score = doc._score != null ? doc._score.toFixed(4) : '';
+                let title = '(no title)';
+                if (doc.title && doc.title.mls && doc.title.mls[0]) {
+                    title = doc.title.mls[0].text.split('\n')[0];
+                }
+                // Language badges
+                let langBadges = '';
+                if (doc.title && doc.title.mls && doc.title.mls.length > 1) {
+                    doc.title.mls.forEach(function(e) {
+                        langBadges += '<span style="padding:0.05rem 0.25rem;background:#dbeafe;color:#1e40af;border-radius:0.15rem;font-size:0.65rem;margin-left:0.15rem">' + escapeHtml(e.lang) + '</span>';
+                    });
+                }
+                // NER badge
+                let nerBadge = '';
+                if (doc.title && doc.title.mls && doc.title.mls[0] && doc.title.mls[0].segmented_ner) {
+                    nerBadge = ' <span style="padding:0.05rem 0.25rem;background:#dcfce7;color:#166534;border-radius:0.15rem;font-size:0.65rem">NER</span>';
+                }
+                html += '<div class="search-doc-entry" style="margin-bottom:0.5rem;border:1px solid #e2e8f0;border-radius:0.375rem;overflow:hidden">';
+                html += '<div style="padding:0.5rem 0.75rem;background:#f8fafc;cursor:pointer;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap" onclick="this.nextElementSibling.classList.toggle(\'hidden\')">';
+                html += '<span style="color:#94a3b8">&#9654;</span> ';
+                if (score) html += '<span class="badge badge-green">' + score + '</span> ';
+                html += '<span class="badge badge-blue">' + escapeHtml(id) + '</span> ';
+                html += '<span style="font-size:0.8rem;flex:1">' + escapeHtml(title.substring(0, 100)) + '</span>';
+                if (doc.department) html += '<span class="badge badge-purple">' + escapeHtml(doc.department) + '</span>';
+                html += langBadges + nerBadge;
+                html += '</div>';
+                html += '<div class="hidden" style="padding:0.5rem 0.75rem;max-height:400px;overflow:auto">';
+                html += '<div class="json-tree">' + buildJsonTree(doc) + '</div>';
+                html += '</div>';
+                html += '</div>';
+            });
+            resultsEl.innerHTML = html;
+        } else {
+            resultsEl.innerHTML = '<div style="color:#94a3b8;padding:1rem">No documents found.</div>';
+        }
+    } catch(e) {
+        statusEl.className = 'status-msg status-err';
+        statusEl.textContent = 'Error: ' + e.message;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Search';
+    }
+}
+
+function toggleAllSearchDocs(expand) {
+    document.querySelectorAll('.search-doc-entry').forEach(entry => {
+        const content = entry.querySelector('div:nth-child(2)');
+        if (content) {
+            if (expand) content.classList.remove('hidden');
+            else content.classList.add('hidden');
+        }
+    });
+}
+
+// Allow Enter key to trigger search
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('search-query');
+    if (searchInput) {
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') searchDocuments();
+        });
+    }
+    // Toggle KV badge indicator
+    const kvCheckbox = document.getElementById('use-kvstore');
+    if (kvCheckbox) {
+        kvCheckbox.addEventListener('change', function() {
+            document.getElementById('kvstore-badge').style.display = this.checked ? 'inline' : 'none';
+        });
+        // Initialize badge visibility based on default checked state
+        document.getElementById('kvstore-badge').style.display = kvCheckbox.checked ? 'inline' : 'none';
+    }
+});
+
+// ─── Lucene Viewer ────────────────────────────────────────────────
+
+async function viewerStats() {
+    const el = document.getElementById('viewer-result');
+    el.innerHTML = '<span class="loading"></span> Loading stats...';
+    try {
+        const stats = await api('GET', '/viewer/stats');
+        if (stats.error) { el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(stats.error) + '</div>'; return; }
+        el.innerHTML = '<div class="json-tree">' + buildJsonTree(stats) + '</div>';
+    } catch(e) { el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(e.message) + '</div>'; }
+}
+
+async function viewerFields() {
+    const el = document.getElementById('viewer-result');
+    el.innerHTML = '<span class="loading"></span> Loading fields...';
+    try {
+        const fields = await api('GET', '/viewer/fields');
+        if (fields.error) { el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(fields.error) + '</div>'; return; }
+        let html = '<table style="width:100%;border-collapse:collapse;font-size:0.8rem">';
+        html += '<tr style="background:#f1f5f9;font-weight:600"><td style="padding:0.35rem 0.5rem">Field Name</td><td style="padding:0.35rem 0.5rem">Index Options</td><td style="padding:0.35rem 0.5rem">DocValues</td></tr>';
+        fields.forEach(f => {
+            html += '<tr style="border-top:1px solid #f1f5f9;cursor:pointer" onclick="document.getElementById(\'viewer-term-field\').value=\'' + escapeHtml(f.name) + '\'">';
+            html += '<td style="padding:0.35rem 0.5rem;color:#1d4ed8;font-weight:500;font-family:monospace">' + escapeHtml(f.name) + '</td>';
+            html += '<td style="padding:0.35rem 0.5rem">' + escapeHtml(f.indexOptions || 'NONE') + '</td>';
+            html += '<td style="padding:0.35rem 0.5rem">' + escapeHtml(f.docValuesType || 'NONE') + '</td>';
+            html += '</tr>';
+        });
+        html += '</table>';
+        el.innerHTML = html;
+    } catch(e) { el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(e.message) + '</div>'; }
+}
+
+async function viewerDocs() {
+    const el = document.getElementById('viewer-result');
+    el.innerHTML = '<span class="loading"></span> Loading documents...';
+    try {
+        const docs = await api('GET', '/viewer/documents?start=0&limit=10');
+        if (docs.error) { el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(docs.error) + '</div>'; return; }
+        let html = '';
+        docs.forEach(doc => {
+            html += '<div style="margin-bottom:0.5rem;border:1px solid #e2e8f0;border-radius:0.375rem;overflow:hidden">';
+            html += '<div style="padding:0.5rem 0.75rem;background:#f8fafc;cursor:pointer;display:flex;align-items:center;gap:0.5rem" onclick="this.nextElementSibling.classList.toggle(\'hidden\')">';
+            html += '<span style="color:#94a3b8">&#9654;</span> ';
+            html += '<span class="badge badge-blue">doc #' + doc.docId + '</span> ';
+            const uid = doc.fields && doc.fields['_uid'] ? doc.fields['_uid'][0] : '';
+            if (uid) html += '<span class="badge badge-gray">' + escapeHtml(uid) + '</span>';
+            html += '</div>';
+            html += '<div class="hidden" style="padding:0.5rem 0.75rem;max-height:400px;overflow:auto">';
+            html += '<div class="json-tree">' + buildJsonTree(doc.fields) + '</div>';
+            html += '</div></div>';
+        });
+        el.innerHTML = html || '<div style="color:#94a3b8">No documents found.</div>';
+    } catch(e) { el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(e.message) + '</div>'; }
+}
+
+async function viewerTerms() {
+    const field = document.getElementById('viewer-term-field').value.trim();
+    if (!field) return;
+    const limit = parseInt(document.getElementById('viewer-term-limit').value) || 50;
+    const el = document.getElementById('viewer-terms-result');
+    el.innerHTML = '<span class="loading"></span> Loading terms...';
+    try {
+        const page = await api('GET', '/viewer/terms/' + encodeURIComponent(field) + '?limit=' + limit);
+        if (page.error) { el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(page.error) + '</div>'; return; }
+        let html = '<div style="margin-bottom:0.5rem;font-size:0.8rem"><strong>' + escapeHtml(field) + '</strong>';
+        if (page.terms) html += ' (' + page.terms.length + ' terms shown)';
+        html += '</div>';
+        if (page.terms && page.terms.length > 0) {
+            html += '<div style="display:flex;flex-wrap:wrap;gap:0.35rem">';
+            page.terms.forEach(t => {
+                html += '<span class="badge badge-blue" title="docFreq=' + t.docFreq + ' totalFreq=' + t.totalTermFreq + '">' + escapeHtml(t.text) + ' <span style="opacity:0.6">(' + t.docFreq + ')</span></span>';
+            });
+            html += '</div>';
+        } else {
+            html += '<div style="color:#94a3b8">No terms found for this field.</div>';
+        }
+        el.innerHTML = html;
+    } catch(e) { el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(e.message) + '</div>'; }
+}
+
+// ─── KVStore ──────────────────────────────────────────────────────
+
+async function kvFetch() {
+    const domain = document.getElementById('kv-domain').value.trim();
+    const did = document.getElementById('kv-did').value.trim();
+    if (!domain || !did) return;
+    const el = document.getElementById('kv-result');
+    el.innerHTML = '<span class="loading"></span> Fetching...';
+    try {
+        const result = await api('GET', '/search/doc/' + encodeURIComponent(domain) + '/' + encodeURIComponent(did));
+        if (result.error) { el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(result.error) + '</div>'; return; }
+        if (result.found) {
+            let html = '<div class="status-msg status-ok" style="margin-bottom:0.5rem">Found: <strong>' + escapeHtml(result.key) + '</strong></div>';
+            html += '<div class="json-tree">' + buildJsonTree(result.document) + '</div>';
+            el.innerHTML = html;
+        } else {
+            el.innerHTML = '<div class="status-msg status-warn">Document not found: ' + escapeHtml(result.key) + '</div>';
+        }
+    } catch(e) { el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(e.message) + '</div>'; }
+}
+
 // ─── Init ─────────────────────────────────────────────────────────
 loadStatus();
 loadTypes();
+checkSearchStatus();
+populateTypeSelector();
 </script>
 </body>
 </html>

@@ -53,6 +53,27 @@
             <version>${hitorro.version}</version>
         </dependency>
 
+        <!-- HiTorro Index - Lucene-based indexing and search -->
+        <dependency>
+            <groupId>com.hitorro</groupId>
+            <artifactId>hitorro-index</artifactId>
+            <version>3.0.0</version>
+        </dependency>
+
+        <!-- HiTorro KVStore - RocksDB key-value store -->
+        <dependency>
+            <groupId>com.hitorro</groupId>
+            <artifactId>hitorro-kvstore</artifactId>
+            <version>3.0.1</version>
+        </dependency>
+
+        <!-- HiTorro Lucene Viewer - index inspection utility -->
+        <dependency>
+            <groupId>com.hitorro</groupId>
+            <artifactId>hitorro-luceneviewer</artifactId>
+            <version>3.0.0</version>
+        </dependency>
+
         <!-- Spring Boot Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

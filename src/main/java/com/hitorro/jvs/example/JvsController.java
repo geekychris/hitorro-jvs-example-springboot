@@ -39,6 +39,16 @@ public class JvsController {
         ));
     }
 
+    // ─── Propaccess Path Navigation ──────────────────────────────────
+
+    @PostMapping("/propaccess")
+    public ResponseEntity<Map<String, Object>> propaccess(@RequestBody JsonNode request) {
+        String json = request.has("json") && request.get("json").isTextual()
+            ? request.get("json").asText() : request.has("json") ? request.get("json").toString() : request.toString();
+        String path = request.has("path") ? request.get("path").asText("") : "";
+        return ResponseEntity.ok(svc.getValueAtPath(json, path));
+    }
+
     // ─── Documents ─────────────────────────────────────────────────
 
     @PostMapping("/documents")

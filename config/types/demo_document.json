@@ -5,27 +5,63 @@
   "fields": [
     {
       "name": "filename",
-      "type": "core_string"
+      "type": "core_string",
+      "groups": [
+        {
+          "name": "index",
+          "method": "identifier"
+        }
+      ]
     },
     {
       "name": "file_type",
-      "type": "core_string"
+      "type": "core_string",
+      "groups": [
+        {
+          "name": "index",
+          "method": "identifier"
+        }
+      ]
     },
     {
       "name": "file_size",
-      "type": "core_long"
+      "type": "core_long",
+      "groups": [
+        {
+          "name": "index",
+          "method": "long"
+        }
+      ]
     },
     {
       "name": "version",
-      "type": "core_string"
+      "type": "core_string",
+      "groups": [
+        {
+          "name": "index",
+          "method": "identifier"
+        }
+      ]
     },
     {
       "name": "author",
-      "type": "core_string"
+      "type": "core_string",
+      "groups": [
+        {
+          "name": "index",
+          "method": "identifier"
+        }
+      ]
     },
     {
       "name": "department",
-      "type": "core_string"
+      "type": "core_string",
+      "groups": [
+        {
+          "name": "index",
+          "method": "identifier"
+        }
+      ]
     },
     {
       "name": "content",
@@ -34,11 +70,23 @@
     {
       "name": "keywords",
       "type": "core_string",
-      "vector": true
+      "vector": true,
+      "groups": [
+        {
+          "name": "index",
+          "method": "identifier"
+        }
+      ]
     },
     {
       "name": "classification",
-      "type": "core_string"
+      "type": "core_string",
+      "groups": [
+        {
+          "name": "index",
+          "method": "identifier"
+        }
+      ]
     },
     {
       "name": "checksum",

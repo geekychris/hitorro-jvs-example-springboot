@@ -190,6 +190,32 @@ public class JvsService {
         return info;
     }
 
+    // ─── Propaccess Path Navigation ──────────────────────────────────
+
+    public Map<String, Object> getValueAtPath(String json, String path) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        try {
+            JVS doc = JVS.read(json);
+            result.put("path", path);
+            if (doc.getType() != null) {
+                result.put("typeName", doc.getType().getName());
+            }
+            JsonNode value = doc.get(path);
+            if (value == null || value.isMissingNode()) {
+                result.put("found", false);
+                result.put("value", null);
+            } else {
+                result.put("found", true);
+                result.put("value", value);
+                result.put("nodeType", value.getNodeType().name());
+            }
+        } catch (Exception e) {
+            result.put("found", false);
+            result.put("error", e.getMessage());
+        }
+        return result;
+    }
+
     // ─── Document Operations ───────────────────────────────────────
 
     public JVS createDocument(String json) {

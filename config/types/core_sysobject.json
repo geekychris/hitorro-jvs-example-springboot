@@ -4,6 +4,16 @@
   "super": null,
   "fields": [
     {
+      "name": "type",
+      "type": "core_string",
+      "groups": [
+        {
+          "name": "index",
+          "method": "identifier"
+        }
+      ]
+    },
+    {
       "name": "id",
       "type": "core_id"
     },

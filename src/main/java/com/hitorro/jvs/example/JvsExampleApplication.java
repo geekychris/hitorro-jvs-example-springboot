@@ -13,6 +13,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  *   POST /api/jvs/merge            - Merge two JVS documents
  *   POST /api/jvs/stem             - Stem text using Snowball stemmer
  *   POST /api/jvs/enrich           - Create a document and enrich with NLP stems
+ *   POST /api/jvs/search/index     - Index demo dataset with type-aware field mapping
+ *   GET  /api/jvs/search?q=...     - Search indexed documents (Lucene query syntax)
+ *   GET  /api/jvs/search/status    - Get index status
  */
 @SpringBootApplication
 public class JvsExampleApplication {

@@ -1,30 +1,117 @@
 # HiTorro JVS Spring Boot Example
 
-A Spring Boot application demonstrating the **hitorro-jsontypesystem** library: type system, NLP enrichment, NER (Named Entity Recognition), translation, and NDJSON document processing pipelines.
+A Spring Boot application demonstrating the **hitorro-jsontypesystem** library with integrated Lucene search, RocksDB document storage, multi-language NLP enrichment, NER (Named Entity Recognition via MaxEnt and ONNX transformer models), and NDJSON document processing pipelines.
 
 ## Quick Start
 
 ```bash
-# Build (from parent hitorro directory)
+# 1. Build (from parent hitorro directory)
 cd hitorro-jvs-example-springboot
 mvn clean package -DskipTests
 
-# Run
-java -jar target/hitorro-jsontypesystem-example-springboot-1.0.0.jar
+# 2. (Optional) Download ONNX NER model for multilingual NER support
+#    Requires Python 3.8+ — only needed once
+cd .. && ./download-onnx-models.sh && cd hitorro-jvs-example-springboot
 
-# Or with Maven
-mvn spring-boot:run
+# 3. Run (HT_BIN tells the app where to find config/ and data/)
+mvn spring-boot:run -DHT_BIN=/path/to/hitorro
+
+# Or run the JAR directly
+java -DHT_BIN=/path/to/hitorro -jar target/hitorro-jsontypesystem-example-springboot-1.0.0.jar
 ```
 
 Open [http://localhost:8080](http://localhost:8080) to access the interactive UI.
 
 ## Features
 
-- **Type Explorer** -- Browse and inspect JVS type definitions
-- **Enrich & NLP** -- Enrich documents with stemming, segmentation, POS tagging, NER
-- **Translation** -- Translate MLS fields via Ollama LLM
+- **Type Explorer** -- Browse and inspect JVS type definitions, field hierarchies, and dynamic field chains
+- **Enrich & NLP** -- Enrich documents with stemming, segmentation, POS tagging, NER (MaxEnt + ONNX transformer fallback)
+- **Translation** -- Translate MLS fields to multiple languages via Ollama LLM
+- **Search & Index** -- Lucene full-text search with type-aware field mapping, faceting, and multi-language support
+- **KV Store** -- RocksDB persistent document storage with option to fetch full documents from the store instead of the index
 - **Documents** -- Create, validate, and merge typed JVS documents
 - **NDJSON Pipeline** -- Process document datasets through enrichment and translation pipelines
+- **Index Viewer** -- Inspect Lucene index internals (stats, fields, stored documents, terms)
+
+## Search, Indexing & Document Storage
+
+The app demonstrates a complete document processing pipeline: translate, enrich, index, and search with both Lucene and RocksDB KV store backends.
+
+### Index & Enrich Pipeline
+
+The indexing pipeline processes documents through a stream chain:
+
+```java
+List<JVS> processedDocs = pipelineService.readDataset().stream()
+        .map(JVS::new)          // Load JSON → JVS
+        .map(translate)          // Add multi-language MLS entries (Ollama)
+        .map(enrich)             // Compute NLP dynamic fields on all languages
+        .collect(Collectors.toList());
+```
+
+**Pipeline stages:**
+1. **Load** — Read NDJSON dataset into JVS documents
+2. **Translate** (optional) — Add multi-language MLS entries via Ollama (e.g., German, Spanish, French). Translation adds new `{lang, text}` entries to the MLS arrays.
+3. **Enrich** (optional) — Compute NLP dynamic fields (segmentation, NER, POS) across ALL language entries, including translated ones. Enrichment runs after translation so NLP fields are computed for every language.
+4. **Index** — Store enriched documents in Lucene (type-aware field projection creates language-specific fields like `title.mls.text_en_s`, `title.mls.text_de_s`) and RocksDB KV store.
+
+### Multi-Language Search
+
+The type system's `iso-language-seeker` and `i18n: true` field markers automatically create language-specific Lucene fields. After indexing with translations:
+
+- `title.mls.text_en_s` — English title (analyzed with `EnglishAnalyzer`)
+- `title.mls.text_de_s` — German title (analyzed with `GermanAnalyzer`)
+- `body.mls.segmented_ner_en_m` — English NER markup
+- `body.mls.segmented_ner_de_m` — German NER markup (via ONNX transformer)
+
+Use the language selector in the Search tab to switch between languages for query parsing.
+
+### Lucene `_source` Field
+
+By default, the full document JSON is stored as a `_source` field in the Lucene index for faithful reconstruction in search results. This can be disabled via `IndexConfig.builder().storeSource(false)` when using the KV store for full document retrieval (saves index storage).
+
+### KV Store Integration
+
+Documents are stored in RocksDB at `data/kvstore/` keyed by `{domain}/{did}`. The search UI provides a toggle to fetch results from the KV store instead of the Lucene index:
+
+- **Source: Index** (default) — Documents reconstructed from Lucene `_source` field
+- **Source: KV Store** — Full documents fetched from RocksDB by document ID (extracted from Lucene hits)
+
+This demonstrates a common pattern: use the index for search/ranking, use an external store for full document retrieval.
+
+### Search API
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/jvs/search/index` | POST | Index dataset with optional enrichment and translation |
+| `/api/jvs/search` | GET | Search with query, facets, language, and KV store toggle |
+| `/api/jvs/search/doc/{domain}/{did}` | GET | Fetch single document from KV store |
+| `/api/jvs/search/fields/{typeName}` | GET | Get indexed field names for a type |
+| `/api/jvs/search/status` | GET | Index and KV store status |
+
+**Index request body:**
+```json
+{
+  "enrichTags": "basic,segmented,ner",
+  "targetLangs": "de,es"
+}
+```
+
+**Search query parameters:**
+- `q` — Lucene query string (e.g., `title.mls.clean:climate`, `*:*`)
+- `lang` — Language for i18n field resolution (default: `en`)
+- `useKvStore` — `true` to fetch full docs from RocksDB instead of index (default: `false`)
+- `facets` — Facet dimensions (default: `department,classification`)
+- `offset`, `limit` — Pagination
+
+### Index Viewer API
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/jvs/viewer/stats` | GET | Index statistics (doc count, fields, segments) |
+| `/api/jvs/viewer/fields` | GET | List all indexed fields with cardinality |
+| `/api/jvs/viewer/documents` | GET | Browse stored documents |
+| `/api/jvs/viewer/terms/{field}` | GET | Browse terms in a field |
 
 ## NDJSON Document Dataset
 
@@ -201,10 +288,25 @@ Pipeline results are written to the `data/` directory:
 
 ## Prerequisites
 
-- Java 21+
-- Maven 3.8+
-- Ollama running locally (optional, for translation features)
-- Parent `hitorro` project with `config/` directory (for type definitions and NLP data)
+- **Java 21+**
+- **Maven 3.8+**
+- **Parent `hitorro` project** with `config/` directory (type definitions) and `data/` directory (NLP models)
+- **Ollama** running locally (optional, for translation features)
+- **Python 3.8+** (optional, one-time setup for ONNX NER model export)
+
+### NLP Model Setup
+
+The app uses OpenNLP models from `data/opennlpmodels1.5/` for sentence detection, tokenization, POS tagging, and NER. These are included in the repository.
+
+For multilingual NER via ONNX transformer (German, French, Italian, Portuguese, etc.):
+
+```bash
+# One-time setup (requires Python 3.8+ and pip)
+cd /path/to/hitorro
+./download-onnx-models.sh
+```
+
+This exports `Davlan/xlm-roberta-base-ner-hrl` (~1GB ONNX model) to `data/opennlpmodels-onnx/ner-multilingual/`. After this, NER enrichment works for all supported languages automatically.
 
 ## Configuration
 
@@ -215,7 +317,49 @@ server:
   port: 8080
 ```
 
-Environment variables:
-- `HT_BIN` / `HT_HOME` -- Path to hitorro root (auto-detected from parent directory)
-- `OLLAMA_URL` -- Ollama API URL (default: `http://localhost:11434`)
-- `OLLAMA_MODEL` -- Ollama model name (default: `llama3.2`)
+**Environment variables / system properties:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `HT_BIN` / `HT_HOME` | auto-detected from parent dir | Path to hitorro root (contains `config/` and `data/`) |
+| `OLLAMA_URL` | `http://localhost:11434` | Ollama API URL for translation |
+| `OLLAMA_MODEL` | `llama3.2` | Ollama model name |
+
+## Architecture
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    JVS Example App (Spring Boot)             │
+├──────────────────────────────────────────────────────────────┤
+│  Controllers:  JvsController, SearchController,              │
+│                NdjsonPipelineController, LuceneViewerController│
+├──────────────────────────────────────────────────────────────┤
+│  Services:     JvsService (type system + NLP + translation)  │
+│                SearchService (index pipeline + search)       │
+│                NdjsonPipelineService (batch processing)       │
+│                DocumentStoreService (RocksDB KV)             │
+├──────────────────────────────────────────────────────────────┤
+│  Libraries:    hitorro-jsontypesystem (JVS + types + NLP)    │
+│                hitorro-index (Lucene indexing + search)       │
+│                hitorro-kvstore (RocksDB key-value store)      │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### Key Classes
+
+| Class | Purpose |
+|-------|---------|
+| `SearchService` | Stream pipeline: load → translate → enrich → index + KV store. Handles search with index/KV source toggle. |
+| `JvsEnrichMapper` | Wraps `EnrichExecutionBuilderMapper` for NLP enrichment with tag-based filtering |
+| `DocumentStoreService` | RocksDB wrapper for persistent document storage keyed by `{domain}/{did}` |
+| `NdjsonPipelineService` | NDJSON processing demonstrating iterator, stream, and bridge patterns |
+
+### Dependencies
+
+| Library | Version | Purpose |
+|---------|---------|---------|
+| Spring Boot | 3.2.2 | Web framework |
+| hitorro-jsontypesystem | 3.0.1 | JVS type system + NLP enrichment |
+| hitorro-index | 3.0.0 | Lucene full-text search with type-aware field mapping |
+| hitorro-kvstore | 3.0.1 | RocksDB persistent key-value store |
+| hitorro-luceneviewer | 3.0.0 | Lucene index inspection tools |
