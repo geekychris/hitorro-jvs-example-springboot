@@ -74,6 +74,13 @@
             <version>3.0.0</version>
         </dependency>
 
+        <!-- HiTorro Unit Time - performance benchmarking toolkit -->
+        <dependency>
+            <groupId>com.hitorro</groupId>
+            <artifactId>hitorro-unittime</artifactId>
+            <version>3.0.1</version>
+        </dependency>
+
         <!-- Spring Boot Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

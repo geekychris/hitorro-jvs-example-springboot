@@ -152,6 +152,7 @@
     <div class="tab" data-tab="pipeline">NDJSON Pipeline</div>
     <div class="tab" data-tab="search">Search</div>
     <div class="tab" data-tab="viewer">Index Viewer</div>
+    <div class="tab" data-tab="unittime">Unit Time</div>
 </div>
 
 <div class="container">
@@ -643,7 +644,49 @@ Pipelines:
         </div>
     </div>
 
+    <!-- ==================== Unit Time Tab ==================== -->
+    <div id="tab-unittime" class="hidden">
+        <div class="card">
+            <h2>Unit Time - Performance Benchmarks</h2>
+            <p class="description">
+                Measure the cost of primitive Java operations in nanoseconds and CPU instruction cycles.
+                Results are calibrated against a baseline local-assignment operation (= 1 unit).
+            </p>
+            <div id="ut-cpu-info" style="margin-bottom:0.75rem"></div>
+            <div style="display:flex;gap:0.75rem;align-items:end;flex-wrap:wrap;margin-bottom:0.75rem">
+                <div>
+                    <label>Category Filter</label>
+                    <select id="ut-category" style="min-width:180px">
+                        <option value="">All Categories</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Name Filter</label>
+                    <input type="text" id="ut-filter" placeholder="e.g. Math, HashMap..." style="min-width:200px">
+                </div>
+                <button class="btn-primary" onclick="runBenchmarks()" id="ut-run-btn">Run Benchmarks</button>
+            </div>
+            <div id="ut-progress" style="display:none;padding:0.75rem;background:#fef3c7;border-radius:0.375rem;margin-bottom:0.75rem">
+                &#9203; Running benchmarks... this may take 30-60 seconds.
+            </div>
+            <div id="ut-results"></div>
+        </div>
+    </div>
+
 </div>
+
+<style>
+/* Unit Time table styles */
+.ut-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.ut-table th { background: #f1f5f9; padding: 0.5rem; text-align: left; cursor: pointer; user-select: none; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }
+.ut-table th:hover { background: #e2e8f0; }
+.ut-table td { padding: 0.4rem 0.5rem; border-bottom: 1px solid #f1f5f9; }
+.ut-table tr:hover { background: #f8fafc; }
+.ut-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.ut-fast { color: #059669; }
+.ut-medium { color: #d97706; }
+.ut-slow { color: #dc2626; }
+</style>
 
 <script>
 const API = '/api/jvs';
@@ -662,6 +705,7 @@ document.querySelectorAll('.tab').forEach(tab => {
         if (name === 'translate') checkTranslateStatus();
         if (name === 'search') { checkSearchStatus(); loadIndexedFields(); }
         if (name === 'viewer') { /* fields loaded on demand */ }
+        if (name === 'unittime') loadUnitTimeStatus();
     });
 });
 
@@ -1605,6 +1649,97 @@ async function kvFetch() {
             el.innerHTML = '<div class="status-msg status-warn">Document not found: ' + escapeHtml(result.key) + '</div>';
         }
     } catch(e) { el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(e.message) + '</div>'; }
+}
+
+// ─── Unit Time ───────────────────────────────────────────────────
+const UT_API = '/api/unittime';
+
+async function utApi(method, path) {
+    const res = await fetch(UT_API + path, { method });
+    const text = await res.text();
+    if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + text);
+    return JSON.parse(text);
+}
+
+async function loadUnitTimeStatus() {
+    try {
+        const data = await utApi('GET', '/status');
+        const info = document.getElementById('ut-cpu-info');
+        info.innerHTML = '<span class="badge badge-blue">CPU: ' + data.cpuGhz.toFixed(2) + ' GHz</span> '
+            + '<span class="badge badge-green">JVM: ' + data.jvmVersion + '</span> '
+            + '<span class="badge badge-gray">' + data.osName + ' ' + data.osArch + '</span> '
+            + '<span class="badge badge-gray">' + data.timerCount + ' timers</span>';
+        const cats = await utApi('GET', '/categories');
+        const sel = document.getElementById('ut-category');
+        sel.innerHTML = '<option value="">All Categories</option>';
+        cats.forEach(function(c) { sel.innerHTML += '<option value="' + c + '">' + c + '</option>'; });
+    } catch(e) { console.error('unittime status', e); }
+}
+
+async function runBenchmarks() {
+    var btn = document.getElementById('ut-run-btn');
+    var progress = document.getElementById('ut-progress');
+    btn.disabled = true;
+    progress.style.display = 'block';
+    document.getElementById('ut-results').innerHTML = '';
+    try {
+        var filter = document.getElementById('ut-filter').value || document.getElementById('ut-category').value;
+        var params = filter ? '?filter=' + encodeURIComponent(filter) : '';
+        var results = await utApi('GET', '/run' + params);
+        renderUnitTimeResults(results);
+    } catch(e) {
+        document.getElementById('ut-results').innerHTML = '<div style="color:#dc2626">Error: ' + e.message + '</div>';
+    } finally {
+        btn.disabled = false;
+        progress.style.display = 'none';
+    }
+}
+
+var utSortField = null;
+var utSortAsc = true;
+var utLastResults = [];
+
+function renderUnitTimeResults(results) {
+    utLastResults = results;
+    if (!results || results.length === 0) {
+        document.getElementById('ut-results').innerHTML = '<p class="description">No results.</p>';
+        return;
+    }
+    var html = '<div style="margin-bottom:0.5rem" class="description">' + results.length + ' benchmarks completed</div>';
+    html += '<table class="ut-table"><thead><tr>';
+    html += '<th data-sort="category">Category</th>';
+    html += '<th data-sort="subCategory">Subcategory</th>';
+    html += '<th data-sort="description">Description</th>';
+    html += '<th data-sort="nsPerUnit" style="text-align:right">ns/op &#x25B4;&#x25BE;</th>';
+    html += '<th data-sort="instructionCycles" style="text-align:right">Cycles &#x25B4;&#x25BE;</th>';
+    html += '<th data-sort="units" style="text-align:right">Units &#x25B4;&#x25BE;</th>';
+    html += '</tr></thead><tbody>';
+    results.forEach(function(r) {
+        var cls = r.units < 5 ? 'ut-fast' : r.units < 50 ? 'ut-medium' : 'ut-slow';
+        html += '<tr>';
+        html += '<td>' + (r.category || '') + '</td>';
+        html += '<td>' + (r.subCategory || '') + '</td>';
+        html += '<td>' + (r.description || '') + '</td>';
+        html += '<td class="num ' + cls + '">' + r.nsPerUnit.toFixed(2) + '</td>';
+        html += '<td class="num ' + cls + '">' + r.instructionCycles.toFixed(1) + '</td>';
+        html += '<td class="num ' + cls + '">' + r.units.toFixed(2) + '</td>';
+        html += '</tr>';
+    });
+    html += '</tbody></table>';
+    document.getElementById('ut-results').innerHTML = html;
+
+    document.querySelectorAll('.ut-table th[data-sort]').forEach(function(th) {
+        th.addEventListener('click', function() {
+            var field = th.dataset.sort;
+            if (utSortField === field) { utSortAsc = !utSortAsc; } else { utSortField = field; utSortAsc = true; }
+            utLastResults.sort(function(a, b) {
+                var va = a[field], vb = b[field];
+                if (typeof va === 'number') return utSortAsc ? va - vb : vb - va;
+                return utSortAsc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+            });
+            renderUnitTimeResults(utLastResults);
+        });
+    });
 }
 
 // ─── Init ─────────────────────────────────────────────────────────
