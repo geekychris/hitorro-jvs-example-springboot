@@ -108,6 +108,13 @@
             </exclusions>
         </dependency>
 
+        <!-- HiTorro Retrieval - pipeline for chaining search, fetch, enrich, paginate -->
+        <dependency>
+            <groupId>com.hitorro</groupId>
+            <artifactId>hitorro-retrieval</artifactId>
+            <version>3.0.0</version>
+        </dependency>
+
         <!-- Spring Boot Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

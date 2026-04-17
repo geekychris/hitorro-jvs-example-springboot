@@ -47,7 +47,7 @@ public class SearchController {
             @RequestParam(defaultValue = "10") int limit,
             @RequestParam(required = false) List<String> facets,
             @RequestParam(defaultValue = "en") String lang,
-            @RequestParam(defaultValue = "false") boolean useKvStore) {
+            @RequestParam(defaultValue = "true") boolean useKvStore) {
         try {
             return ResponseEntity.ok(searchService.search(q, offset, limit, facets, lang, useKvStore));
         } catch (Exception e) {

@@ -75,7 +75,7 @@ public class SearchService {
         if (indexManager.hasIndex(INDEX_NAME)) {
             indexManager.clearIndex(INDEX_NAME);
         } else {
-            IndexConfig config = IndexConfig.builder().inMemory().storeSource(false).build();
+            IndexConfig config = IndexConfig.builder().inMemory().storeSource(true).build();
             indexManager.createIndex(INDEX_NAME, config, type);
         }
 
@@ -179,51 +179,61 @@ public class SearchService {
         response.put("searchTimeMs", result.getSearchTimeMs());
         response.put("kvStoreAvailable", docStore.isOpen());
 
-        // Determine source: if useKvStore requested and KV store is available, fetch from KV
+        // Determine source: prefer KV store for clean JVS documents
         boolean fromKvStore = useKvStore && docStore.isOpen();
         response.put("source", fromKvStore ? "kvstore" : "index");
 
-        List<JsonNode> docs;
-        if (fromKvStore) {
-            // Extract doc IDs from Lucene results, fetch full documents from KV store
-            docs = new ArrayList<>();
-            int kvHits = 0;
-            int kvMisses = 0;
-            for (JVS jvs : result.getDocuments()) {
-                // Try building key from full id structure first, then from id.id (domain:did format)
-                String key = docStore.buildKey(jvs.getJsonNode());
-                if (key == null) {
-                    // Without _source, id.domain/id.did may not exist — try id.id (format: "domain:did")
-                    JsonNode idNode = jvs.getJsonNode().get("id");
-                    if (idNode != null && idNode.has("id")) {
-                        String combinedId = idNode.get("id").asText();
-                        int colon = combinedId.indexOf(':');
-                        if (colon > 0) {
-                            key = combinedId.substring(0, colon) + "/" + combinedId.substring(colon + 1);
-                        }
-                    }
-                }
+        List<Map<String, Object>> docs = new ArrayList<>();
+        int kvHits = 0;
+        for (JVS jvs : result.getDocuments()) {
+            JsonNode luceneDoc = jvs.getJsonNode();
+            float score = luceneDoc.has("_score") ? (float) luceneDoc.get("_score").asDouble(0) : 0;
+            String uid = luceneDoc.has("_uid") ? luceneDoc.get("_uid").asText() : null;
+
+            JsonNode document = null;
+
+            // Strategy 1: Fetch clean document from KV store
+            if (fromKvStore && uid != null) {
+                String key = extractKvKey(luceneDoc);
                 if (key != null) {
                     Result<JsonNode> kvResult = docStore.get(key);
                     if (kvResult.isSuccess() && kvResult.getOrDefault(null) != null) {
-                        docs.add(kvResult.getOrDefault(null));
+                        document = kvResult.getOrDefault(null);
                         kvHits++;
-                        continue;
                     }
                 }
-                // Fallback to index doc if KV lookup fails
-                docs.add(jvs.getJsonNode());
-                kvMisses++;
             }
-            if (kvMisses > 0) {
-                response.put("kvMisses", kvMisses);
+
+            // Strategy 2: Parse _source field (full original JSON stored in index)
+            if (document == null && luceneDoc.has("_source")) {
+                JsonNode sourceNode = luceneDoc.get("_source");
+                if (sourceNode.isTextual()) {
+                    try {
+                        document = new com.fasterxml.jackson.databind.ObjectMapper()
+                                .readTree(sourceNode.asText());
+                    } catch (Exception e) {
+                        // fall through to raw Lucene doc
+                    }
+                } else {
+                    document = sourceNode;
+                }
             }
-        } else {
-            docs = result.getDocuments().stream()
-                    .map(JVS::getJsonNode)
-                    .collect(Collectors.toList());
+
+            // Strategy 3: Fall back to Lucene field reconstruction
+            if (document == null) {
+                document = luceneDoc;
+            }
+
+            // Wrap result with score metadata
+            Map<String, Object> hit = new LinkedHashMap<>();
+            hit.put("_score", score);
+            hit.put("document", document);
+            docs.add(hit);
         }
         response.put("documents", docs);
+        if (fromKvStore) {
+            response.put("kvHits", kvHits);
+        }
 
         // Include facets if present
         if (result.hasFacets()) {
@@ -246,6 +256,43 @@ public class SearchService {
         }
 
         return response;
+    }
+
+    /**
+     * Extract KV store key from a Lucene result document.
+     * Tries multiple strategies: id.domain/id.did, _uid with domain extraction, id.id combined format.
+     */
+    private String extractKvKey(JsonNode luceneDoc) {
+        // Strategy A: direct id.domain + id.did (works when _source is stored)
+        JsonNode idNode = luceneDoc.get("id");
+        if (idNode != null) {
+            if (idNode.has("domain") && idNode.has("did")) {
+                return idNode.get("domain").asText() + "/" + idNode.get("did").asText();
+            }
+            // Strategy B: id.id in "domain:did" format (Lucene field reconstruction)
+            JsonNode idId = idNode.has("id") ? idNode.get("id") : null;
+            if (idId != null) {
+                String combined = idId.isTextual() ? idId.asText() : (idId.has("identifier_s") ? idId.get("identifier_s").asText() : null);
+                if (combined != null) {
+                    int colon = combined.indexOf(':');
+                    if (colon > 0) {
+                        return combined.substring(0, colon) + "/" + combined.substring(colon + 1);
+                    }
+                }
+            }
+        }
+        // Strategy C: _uid field (contains did without domain)
+        String uid = luceneDoc.has("_uid") ? luceneDoc.get("_uid").asText() : null;
+        if (uid != null) {
+            // Try all known domains from the extracted store
+            for (String storedKey : List.of("research/" + uid, "engineering/" + uid, "hr/" + uid, "finance/" + uid)) {
+                Result<JsonNode> r = docStore.get(storedKey);
+                if (r.isSuccess() && r.getOrDefault(null) != null) {
+                    return storedKey;
+                }
+            }
+        }
+        return null;
     }
 
     // ─── Fetch from KVStore ───────────────────────────────────────

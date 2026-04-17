@@ -22,6 +22,7 @@ This application serves as both a reference implementation and an interactive pl
 - [AI Translation (Ollama)](#ai-translation-ollama)
 - [Search, Indexing & Document Storage](#search-indexing--document-storage)
 - [NDJSON Pipeline Processing](#ndjson-pipeline-processing)
+- [Retrieval Pipeline](#retrieval-pipeline)
 - [Feature Extraction](#feature-extraction)
 - [Performance Benchmarking (UnitTime)](#performance-benchmarking-unittime)
 - [Interactive Web UI](#interactive-web-ui)
@@ -115,6 +116,7 @@ This ensures the app has access to type definitions even when run standalone. Th
 | hitorro-luceneviewer | 3.0.0 | Lucene index inspection and browsing tools |
 | hitorro-unittime | 3.0.1 | CPU-aware performance microbenchmarking |
 | hitorro-features | 3.0.1 | Feature extraction, indexing, and querying framework |
+| hitorro-retrieval | 3.0.0 | Retrieval pipeline (search, fetch, enrich, paginate, facet) |
 | Spring Boot Starter Test | 3.2.2 | JUnit 5, MockMvc, AssertJ |
 
 HiTorro artifacts are resolved from:
@@ -763,6 +765,66 @@ Pipeline results are written to the `data/` directory:
 
 ---
 
+## Retrieval Pipeline
+
+The retrieval tab demonstrates the `hitorro-retrieval` module -- a pipeline for chaining index search, document fetch, enrichment, pagination, and faceting over Lucene and RocksDB.
+
+### Multi-Index Management
+
+Create multiple named indexes with optional JVS type associations, load documents (demo dataset or custom JSON), and manage their lifecycle.
+
+### Pipeline Stages
+
+Each retrieval query flows through a configurable chain of stages:
+
+```mermaid
+flowchart LR
+    IR["IndexRetriever\n(Lucene search)"] --> DR["DocumentRetriever\n(KVStore fetch)"]
+    DR --> FR["FixupRetriever\n(NLP enrichment)"]
+    FR --> PR["PaginationRetriever\n(skip/take)"]
+    PR --> FaR["FacetRetriever\n(aggregate facets)"]
+```
+
+Each stage activates only when its section is present in the query:
+
+| Stage | Activates When | What It Does |
+|-------|---------------|-------------|
+| **IndexRetriever** | `search.query` present | Executes Lucene search with field resolution, facets, language |
+| **DocumentRetriever** | `fetch.enabled` is true | Merges full documents from RocksDB KVStore |
+| **FixupRetriever** | `fixup.tags` present | Applies NLP enrichment (stemming, NER, segmentation) |
+| **PaginationRetriever** | `page.rows` present | Client-side skip/take pagination |
+| **FacetRetriever** | Facets available | Registers facet aggregates for output |
+
+### Retrieval API
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/retrieval/status` | GET | List indexes, KVStore state |
+| `/api/retrieval/indexes` | GET | List all indexes with doc counts |
+| `/api/retrieval/indexes` | POST | Create or reset a named index |
+| `/api/retrieval/indexes/{name}` | DELETE | Delete a named index |
+| `/api/retrieval/indexes/{name}/documents` | POST | Index documents (dataset or custom) |
+| `/api/retrieval/kvstore/enable` | POST | Enable RocksDB document store |
+| `/api/retrieval/kvstore/disable` | POST | Disable RocksDB document store |
+| `/api/retrieval/execute` | POST | Execute retrieval pipeline |
+
+### Execute Request Format
+
+```json
+{
+  "indexName": "articles",
+  "lang": "en",
+  "query": {
+    "search": {"query": "title:climate", "limit": 10, "facets": ["department"]},
+    "fetch": {"enabled": true},
+    "fixup": {"tags": ["basic", "segmented", "ner"]},
+    "page": {"rows": 5, "page": 0}
+  }
+}
+```
+
+---
+
 ## Feature Extraction
 
 The feature extraction module demonstrates the hitorro-features library for computing, indexing, and querying document features.
@@ -840,6 +902,7 @@ The app includes a single-page interactive UI at [http://localhost:8080](http://
 | **NDJSON Pipeline** | Run all pipeline variants (iterator/stream, enrich/translate/combined/bridge), view output counts |
 | **Search** | Full-text search with facet navigation, language selector, KV store toggle, field listing |
 | **Index Viewer** | Browse Lucene index internals -- statistics, field listing with cardinality, stored documents, term browsing with pagination |
+| **Retrieval** | Create multiple indexes, load documents, execute retrieval pipelines with configurable stages (search, fetch, enrich, paginate, facets) |
 | **Features** | Extract features from documents, build feature index, query features by docId |
 | **Unit Time** | View system info, run performance benchmarks with optional filtering |
 
