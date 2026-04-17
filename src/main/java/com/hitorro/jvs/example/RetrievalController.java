@@ -381,10 +381,37 @@ public class RetrievalController {
             int limit = body.has("limit") ? body.get("limit").asInt() : 20;
             String lang = body.has("lang") ? body.get("lang").asText() : "en";
 
+            boolean useKvStore = body.has("useKvStore") && body.get("useKvStore").asBoolean();
             SearchResult sr = indexManager.searchMultiple(indexNames, query, offset, limit, lang);
 
-            result.put("documents", sr.getDocuments().stream().map(JVS::getJsonNode).toList());
-            result.put("documentCount", sr.getDocuments().size());
+            // When KVStore is enabled, fetch full documents from KV using the _uid
+            List<JVS> docs = sr.getDocuments();
+            if (useKvStore && typedKvStore != null) {
+                List<JVS> kvDocs = new ArrayList<>();
+                for (JVS doc : docs) {
+                    String key = buildKey(doc);
+                    if (key != null) {
+                        var kvResult = typedKvStore.get(key);
+                        if (kvResult.isSuccess() && kvResult.getValue().isPresent()) {
+                            JVS fullDoc = new JVS(kvResult.getValue().get());
+                            // Carry over Lucene metadata
+                            if (doc.exists("_score")) fullDoc.set("_score", doc.get("_score"));
+                            if (doc.exists("_index")) fullDoc.set("_index", doc.get("_index"));
+                            if (doc.exists("_uid")) fullDoc.set("_uid", doc.get("_uid"));
+                            kvDocs.add(fullDoc);
+                            continue;
+                        }
+                    }
+                    kvDocs.add(doc); // fallback to index doc
+                }
+                docs = kvDocs;
+                result.put("source", "kvstore");
+            } else {
+                result.put("source", "index");
+            }
+
+            result.put("documents", docs.stream().map(JVS::getJsonNode).toList());
+            result.put("documentCount", docs.size());
             result.put("totalHits", sr.getTotalHits());
             result.put("searchTimeMs", sr.getSearchTimeMs());
             result.put("indexNames", indexNames);
