@@ -152,6 +152,7 @@
     <div class="tab" data-tab="pipeline">NDJSON Pipeline</div>
     <div class="tab" data-tab="search">Search</div>
     <div class="tab" data-tab="viewer">Index Viewer</div>
+    <div class="tab" data-tab="features">Features</div>
     <div class="tab" data-tab="unittime">Unit Time</div>
 </div>
 
@@ -313,6 +314,7 @@ Enrichment adds dynamic fields to MLS text fields:
                             <label><input type="checkbox" class="target-lang" value="nl"> Dutch</label>
                             <label><input type="checkbox" class="target-lang" value="ja"> Japanese</label>
                             <label><input type="checkbox" class="target-lang" value="zh"> Chinese</label>
+                            <label><input type="checkbox" class="target-lang" value="fa"> Persian</label>
                         </div>
                     </div>
                     <div class="btn-group">
@@ -431,6 +433,7 @@ Enrichment adds dynamic fields to MLS text fields:
                             <label><input type="checkbox" class="pipeline-target-lang" value="it"> IT</label>
                             <label><input type="checkbox" class="pipeline-target-lang" value="ja"> JA</label>
                             <label><input type="checkbox" class="pipeline-target-lang" value="zh"> ZH</label>
+                            <label><input type="checkbox" class="pipeline-target-lang" value="fa"> FA</label>
                         </div>
                     </div>
                 </div>
@@ -482,9 +485,9 @@ Pipelines:
                         <label><input type="checkbox" class="enrich-tag" value="parsed"> parsed</label>
                     </div>
                 </div>
-                <div style="flex:1;min-width:250px">
+                <div style="flex:2;min-width:300px">
                     <label>Translate to (Ollama &mdash; runs before enrichment)</label>
-                    <div class="checkbox-group">
+                    <div class="checkbox-group" style="max-height:none">
                         <label><input type="checkbox" class="target-lang" value="de"> de (German)</label>
                         <label><input type="checkbox" class="target-lang" value="es"> es (Spanish)</label>
                         <label><input type="checkbox" class="target-lang" value="fr"> fr (French)</label>
@@ -493,6 +496,7 @@ Pipelines:
                         <label><input type="checkbox" class="target-lang" value="pt"> pt (Portuguese)</label>
                         <label><input type="checkbox" class="target-lang" value="ja"> ja (Japanese)</label>
                         <label><input type="checkbox" class="target-lang" value="zh"> zh (Chinese)</label>
+                        <label><input type="checkbox" class="target-lang" value="fa"> fa (Persian)</label>
                     </div>
                 </div>
             </div>
@@ -529,6 +533,7 @@ Pipelines:
                         <option value="pt">pt</option>
                         <option value="ja">ja</option>
                         <option value="zh">zh</option>
+                        <option value="fa">fa</option>
                     </select>
                 </div>
             </div>
@@ -644,6 +649,66 @@ Pipelines:
         </div>
     </div>
 
+    <!-- ==================== Features Tab ==================== -->
+    <div id="tab-features" class="hidden">
+        <div class="card">
+            <h2>Feature Extraction</h2>
+            <p class="description">
+                Extract computed features from JSON documents. Paste a single document or a JSON array of multiple documents.
+                Extracted features are stored in memory for subsequent indexing and querying.
+            </p>
+            <div id="feat-status" style="margin-bottom:0.75rem"></div>
+            <div class="grid-2">
+                <div>
+                    <label>JSON Document(s) <span class="description">(single object or array)</span></label>
+                    <textarea id="feat-input" rows="14" style="width:100%;font-family:monospace;font-size:0.75rem;padding:0.5rem;border:1px solid #e2e8f0;border-radius:0.375rem" placeholder='[{"id":1,"title":"First","body":"Hello world"},{"id":2,"title":"Second","body":"Another doc"}]'></textarea>
+                    <div style="display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap">
+                        <button class="btn-primary" onclick="extractFeatures()">Extract Features</button>
+                        <button class="btn-secondary" onclick="loadSampleDocs()">Load Samples</button>
+                        <button class="btn-secondary" onclick="clearFeatures()">Clear All</button>
+                    </div>
+                </div>
+                <div>
+                    <label>Extraction Results</label>
+                    <div id="feat-results" style="min-height:200px;max-height:400px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:0.375rem;padding:0.5rem;background:#fafafa">
+                        <p class="description">Paste documents and click Extract.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card" style="margin-top:1rem">
+            <h2>Feature Index</h2>
+            <p class="description">
+                Index extracted features into the binary feature index, then query feature values by document ID.
+            </p>
+            <div style="display:flex;gap:0.5rem;align-items:end;flex-wrap:wrap;margin-bottom:0.75rem">
+                <button class="btn-primary" onclick="indexFeatures()">Build Index</button>
+                <span id="feat-index-status"></span>
+            </div>
+            <div class="grid-2">
+                <div>
+                    <label>Query Feature Index</label>
+                    <div style="display:flex;gap:0.5rem;margin-bottom:0.5rem">
+                        <input type="number" id="feat-query-docid" placeholder="Doc ID (e.g. 1)" style="width:120px">
+                        <select id="feat-query-feature" style="min-width:150px"></select>
+                        <button class="btn-primary" onclick="queryFeatureIndex()">Query</button>
+                    </div>
+                    <div id="feat-query-result"></div>
+                </div>
+                <div>
+                    <label>Extracted Documents</label>
+                    <div id="feat-extracted-docs" style="max-height:250px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:0.375rem;padding:0.5rem;background:#fafafa;font-size:0.75rem">
+                        <p class="description">No documents extracted yet.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card" style="margin-top:1rem">
+            <h2>Available Features</h2>
+            <div id="feat-definitions"></div>
+        </div>
+    </div>
+
     <!-- ==================== Unit Time Tab ==================== -->
     <div id="tab-unittime" class="hidden">
         <div class="card">
@@ -705,6 +770,7 @@ document.querySelectorAll('.tab').forEach(tab => {
         if (name === 'translate') checkTranslateStatus();
         if (name === 'search') { checkSearchStatus(); loadIndexedFields(); }
         if (name === 'viewer') { /* fields loaded on demand */ }
+        if (name === 'features') loadFeatureStatus();
         if (name === 'unittime') loadUnitTimeStatus();
     });
 });
@@ -1649,6 +1715,143 @@ async function kvFetch() {
             el.innerHTML = '<div class="status-msg status-warn">Document not found: ' + escapeHtml(result.key) + '</div>';
         }
     } catch(e) { el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(e.message) + '</div>'; }
+}
+
+// ─── Features ────────────────────────────────────────────────────
+const FEAT_API = '/api/features';
+
+async function featApi(method, path, body) {
+    var opts = { method: method, headers: {'Content-Type': 'application/json'} };
+    if (body !== undefined) opts.body = typeof body === 'string' ? body : JSON.stringify(body);
+    var res = await fetch(FEAT_API + path, opts);
+    var text = await res.text();
+    if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + text);
+    return JSON.parse(text);
+}
+
+async function loadFeatureStatus() {
+    try {
+        var data = await featApi('GET', '/status');
+        document.getElementById('feat-status').innerHTML =
+            '<span class="badge badge-blue">' + data.featureCount + ' features</span> '
+            + '<span class="badge badge-green">' + data.extractedDocuments + ' docs extracted</span> '
+            + (data.indexed ? '<span class="badge badge-green">Indexed</span>' : '<span class="badge badge-gray">Not indexed</span>');
+        var html = '<table class="ut-table"><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>';
+        data.features.forEach(function(f) {
+            html += '<tr><td><code>' + f.name + '</code></td><td>' + f.dataType + '</td><td>' + f.description + '</td></tr>';
+        });
+        html += '</tbody></table>';
+        document.getElementById('feat-definitions').innerHTML = html;
+        // Populate query feature dropdown
+        var sel = document.getElementById('feat-query-feature');
+        sel.innerHTML = '';
+        data.features.forEach(function(f) { sel.innerHTML += '<option value="' + f.name + '">' + f.name + '</option>'; });
+        refreshExtractedDocs();
+    } catch(e) { console.error('feature status', e); }
+}
+
+function loadSampleDocs() {
+    document.getElementById('feat-input').value = JSON.stringify([
+        {"id": 1, "title": "Machine Learning in Healthcare", "body": "Artificial intelligence and machine learning are transforming healthcare delivery. From diagnostic imaging to drug discovery, these technologies offer unprecedented opportunities.", "date": "2025-03-15", "tags": ["AI", "healthcare"]},
+        {"id": 2, "title": "Climate Change Report", "body": "Global temperatures continue to rise. The latest IPCC report highlights urgent need for action across all sectors of the economy.", "date": "2025-01-20", "author": "IPCC"},
+        {"id": 3, "title": "Cooking with Spices", "body": "A guide to using cumin coriander and turmeric in everyday cooking.", "metadata": {"category": "food"}},
+        {"id": 4, "title": "Q3 Financial Results", "body": "Revenue increased 15% year over year driven by strong growth in cloud services and enterprise subscriptions.", "date": "2025-10-01", "tags": ["finance", "quarterly"], "metrics": {"revenue": 4200000}},
+        {"id": 5, "title": "Short", "body": "Brief."}
+    ], null, 2);
+}
+
+async function extractFeatures() {
+    var input = document.getElementById('feat-input').value.trim();
+    if (!input) { alert('Please enter JSON document(s)'); return; }
+    try {
+        var parsed = JSON.parse(input);
+        var result;
+        if (Array.isArray(parsed)) {
+            result = await featApi('POST', '/extract-batch', parsed);
+            var html = '<div style="margin-bottom:0.5rem"><span class="badge badge-green">' + result.documentCount + ' docs, ' + result.totalFeatures + ' features</span></div>';
+            result.documents.forEach(function(doc) {
+                html += '<div style="margin-bottom:0.5rem;font-weight:600;font-size:0.8rem">Doc #' + doc.documentId + '</div>';
+                html += renderFeaturesTable(doc.features);
+            });
+            document.getElementById('feat-results').innerHTML = html;
+        } else {
+            result = await featApi('POST', '/extract', parsed);
+            var html = '<div style="margin-bottom:0.5rem"><span class="badge badge-green">Doc #' + result.documentId + ': ' + result.featureCount + ' features</span></div>';
+            html += renderFeaturesTable(result.features);
+            document.getElementById('feat-results').innerHTML = html;
+        }
+        loadFeatureStatus();
+    } catch(e) {
+        document.getElementById('feat-results').innerHTML = '<div style="color:#dc2626">Error: ' + e.message + '</div>';
+    }
+}
+
+function renderFeaturesTable(features) {
+    var html = '<table class="ut-table" style="margin-bottom:0.75rem"><thead><tr><th>Feature</th><th>Value</th></tr></thead><tbody>';
+    features.forEach(function(f) {
+        var val = f.value !== null && f.value !== undefined ? f.value : '<span style="color:#9ca3af">null</span>';
+        var cls = (typeof f.value === 'number' && f.value > 0) ? 'ut-fast' : '';
+        html += '<tr><td><code>' + f.name + '</code></td><td class="num ' + cls + '">' + val + '</td></tr>';
+    });
+    html += '</tbody></table>';
+    return html;
+}
+
+async function indexFeatures() {
+    try {
+        var result = await featApi('POST', '/index');
+        document.getElementById('feat-index-status').innerHTML =
+            '<span class="badge badge-green">Indexed ' + result.indexedValues + ' values from ' + result.documentsIndexed + ' docs</span>';
+        loadFeatureStatus();
+    } catch(e) {
+        document.getElementById('feat-index-status').innerHTML = '<span style="color:#dc2626">' + e.message + '</span>';
+    }
+}
+
+async function queryFeatureIndex() {
+    var docId = document.getElementById('feat-query-docid').value;
+    var feature = document.getElementById('feat-query-feature').value;
+    if (!docId) { alert('Enter a document ID'); return; }
+    try {
+        var result = await featApi('GET', '/query?docId=' + docId + '&feature=' + encodeURIComponent(feature));
+        var html = '<table class="ut-table"><tbody>';
+        html += '<tr><td>Document ID</td><td class="num">' + result.documentId + '</td></tr>';
+        html += '<tr><td>Feature</td><td><code>' + result.feature + '</code></td></tr>';
+        html += '<tr><td>Found</td><td>' + (result.found ? '<span class="ut-fast">Yes</span>' : '<span class="ut-slow">No</span>') + '</td></tr>';
+        html += '<tr><td>Value</td><td class="num ut-fast">' + (result.value !== null ? result.value : 'N/A') + '</td></tr>';
+        html += '</tbody></table>';
+        document.getElementById('feat-query-result').innerHTML = html;
+    } catch(e) {
+        document.getElementById('feat-query-result').innerHTML = '<span style="color:#dc2626">' + e.message + '</span>';
+    }
+}
+
+async function refreshExtractedDocs() {
+    try {
+        var data = await featApi('GET', '/extracted');
+        if (data.documentCount === 0) {
+            document.getElementById('feat-extracted-docs').innerHTML = '<p class="description">No documents extracted yet.</p>';
+            return;
+        }
+        var html = '<div style="margin-bottom:0.25rem"><strong>' + data.documentCount + ' documents</strong></div>';
+        data.documents.forEach(function(doc) {
+            html += '<div style="padding:0.2rem 0;border-bottom:1px solid #f1f5f9">Doc #' + doc.documentId + ': ';
+            doc.features.forEach(function(f) {
+                html += '<span style="margin-right:0.5rem">' + f.name + '=<strong>' + f.value + '</strong></span>';
+            });
+            html += '</div>';
+        });
+        document.getElementById('feat-extracted-docs').innerHTML = html;
+    } catch(e) { console.error(e); }
+}
+
+async function clearFeatures() {
+    await featApi('POST', '/clear');
+    document.getElementById('feat-results').innerHTML = '<p class="description">Cleared.</p>';
+    document.getElementById('feat-extracted-docs').innerHTML = '<p class="description">No documents extracted yet.</p>';
+    document.getElementById('feat-index-status').innerHTML = '';
+    document.getElementById('feat-query-result').innerHTML = '';
+    loadFeatureStatus();
 }
 
 // ─── Unit Time ───────────────────────────────────────────────────

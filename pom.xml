@@ -51,6 +51,16 @@
             <groupId>com.hitorro</groupId>
             <artifactId>hitorro-jsontypesystem</artifactId>
             <version>${hitorro.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-reload4j</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>ch.qos.reload4j</groupId>
+                    <artifactId>reload4j</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- HiTorro Index - Lucene-based indexing and search -->
@@ -79,6 +89,23 @@
             <groupId>com.hitorro</groupId>
             <artifactId>hitorro-unittime</artifactId>
             <version>3.0.1</version>
+        </dependency>
+
+        <!-- HiTorro Features - feature extraction and indexing -->
+        <dependency>
+            <groupId>com.hitorro</groupId>
+            <artifactId>hitorro-features</artifactId>
+            <version>3.0.1</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-reload4j</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>ch.qos.reload4j</groupId>
+                    <artifactId>reload4j</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- Spring Boot Test -->
