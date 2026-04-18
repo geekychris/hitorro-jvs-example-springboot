@@ -14,14 +14,25 @@ import com.hitorro.kvstore.DatabaseConfig;
 import com.hitorro.kvstore.KVStore;
 import com.hitorro.kvstore.RocksDBStore;
 import com.hitorro.kvstore.TypedKVStore;
+import com.hitorro.jsontypesystem.datamapper.AIOperations;
 import com.hitorro.retrieval.RetrievalConfig;
 import com.hitorro.retrieval.RetrievalResult;
 import com.hitorro.retrieval.RetrievalService;
+import com.hitorro.retrieval.context.ContextAttributes;
 import com.hitorro.retrieval.context.RetrievalContext;
+import com.hitorro.retrieval.docstore.DocumentStore;
+import com.hitorro.retrieval.docstore.LocalKVDocumentStore;
+import com.hitorro.retrieval.merger.*;
 import com.hitorro.retrieval.pipeline.RetrievalPipeline;
 import com.hitorro.retrieval.pipeline.RetrievalPipelineBuilder;
 import com.hitorro.retrieval.pipeline.Retriever;
-import com.hitorro.util.core.iterator.AbstractIterator;
+import com.hitorro.retrieval.cluster.NodeAddress;
+import com.hitorro.retrieval.cluster.NodeRole;
+import com.hitorro.retrieval.docstore.RemoteDocumentStore;
+import com.hitorro.retrieval.search.CompositeSearchProvider;
+import com.hitorro.retrieval.search.LuceneSearchProvider;
+import com.hitorro.retrieval.search.RemoteSearchProvider;
+import com.hitorro.retrieval.search.SearchProvider;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,6 +64,7 @@ public class RetrievalController {
     // Optional KVStore for document retrieval demo
     private KVStore rawKvStore;
     private TypedKVStore<JsonNode> typedKvStore;
+    private boolean useRemoteTransport = false;
 
     public RetrievalController(NdjsonPipelineService pipelineService, JvsService jvsService) {
         this.pipelineService = pipelineService;
@@ -382,29 +394,43 @@ public class RetrievalController {
             String lang = body.has("lang") ? body.get("lang").asText() : "en";
 
             boolean useKvStore = body.has("useKvStore") && body.get("useKvStore").asBoolean();
-            SearchResult sr = indexManager.searchMultiple(indexNames, query, offset, limit, lang);
+            String mergerName = body.has("merger") ? body.get("merger").asText() : "score";
 
-            // When KVStore is enabled, fetch full documents from KV using the _uid
+            // Build per-index providers and merge via CompositeSearchProvider
+            List<SearchProvider> providers = new ArrayList<>();
+            if (useRemoteTransport) {
+                // Wire transport: each index gets a RemoteSearchProvider
+                NodeAddress self = new NodeAddress("localhost", "localhost", 8080, Set.of(NodeRole.INDEX));
+                for (String idxName : indexNames) {
+                    providers.add(new RemoteSearchProvider(self) {
+                        @Override public SearchResult search(String ig, String q, int o, int l,
+                                                   java.util.List<String> f, String ln) throws Exception {
+                            return super.search(idxName, q, o, l, f, ln);
+                        }
+                        @Override public String getName() { return "remote:" + idxName; }
+                    });
+                }
+            } else {
+                for (String idxName : indexNames) {
+                    final String idx = idxName;
+                    providers.add(new LuceneSearchProvider(indexManager) {
+                        @Override public SearchResult search(String ig, String q, int o, int l,
+                                                   java.util.List<String> f, String ln) throws Exception {
+                            return super.search(idx, q, o, l, f, ln);
+                        }
+                        @Override public String getName() { return "lucene:" + idx; }
+                    });
+                }
+            }
+
+            ResultMerger merger = selectMerger(mergerName);
+            CompositeSearchProvider composite = new CompositeSearchProvider(providers, merger);
+            SearchResult sr = composite.search("multi", query, offset, limit, null, lang);
+
+            // Fetch from KVStore if enabled
             List<JVS> docs = sr.getDocuments();
             if (useKvStore && typedKvStore != null) {
-                List<JVS> kvDocs = new ArrayList<>();
-                for (JVS doc : docs) {
-                    String key = buildKey(doc);
-                    if (key != null) {
-                        var kvResult = typedKvStore.get(key);
-                        if (kvResult.isSuccess() && kvResult.getValue().isPresent()) {
-                            JVS fullDoc = new JVS(kvResult.getValue().get());
-                            // Carry over Lucene metadata
-                            if (doc.exists("_score")) fullDoc.set("_score", doc.get("_score"));
-                            if (doc.exists("_index")) fullDoc.set("_index", doc.get("_index"));
-                            if (doc.exists("_uid")) fullDoc.set("_uid", doc.get("_uid"));
-                            kvDocs.add(fullDoc);
-                            continue;
-                        }
-                    }
-                    kvDocs.add(doc); // fallback to index doc
-                }
-                docs = kvDocs;
+                docs = fetchFromKv(docs);
                 result.put("source", "kvstore");
             } else {
                 result.put("source", "index");
@@ -415,6 +441,20 @@ public class RetrievalController {
             result.put("totalHits", sr.getTotalHits());
             result.put("searchTimeMs", sr.getSearchTimeMs());
             result.put("indexNames", indexNames);
+            result.put("merger", merger.getName());
+            result.put("searchProviders", providers.stream().map(SearchProvider::getName).toList());
+            result.put("stagesUsed", List.of(
+                    "CompositeSearchProvider (" + composite.getName() + ")",
+                    "ResultMerger (" + merger.getName() + ")",
+                    useKvStore ? "KVStore fetch" : "Index _source"
+            ));
+            // Surface context info
+            Map<String, Object> attrs = new LinkedHashMap<>();
+            attrs.put("searchProviders", composite.getName());
+            attrs.put("merger", merger.getName());
+            attrs.put("totalHits", sr.getTotalHits());
+            if (useKvStore) attrs.put("documentStore", "local-kv");
+            result.put("contextAttributes", attrs);
             result.put("success", true);
         } catch (Exception e) {
             log.error("Multi-index search failed", e);
@@ -450,10 +490,26 @@ public class RetrievalController {
             }
             String lang = body.has("lang") ? body.get("lang").asText() : "en";
 
-            // Create retrieval service with optional KVStore
-            RetrievalService service = typedKvStore != null
-                    ? new RetrievalService(indexManager, typedKvStore)
-                    : new RetrievalService(indexManager);
+            // Create retrieval service with pluggable providers
+            SearchProvider searchProvider;
+            DocumentStore docStore;
+            if (useRemoteTransport) {
+                // Wire transport: HTTP calls to our own endpoints (demonstrating the protocol)
+                NodeAddress self = new NodeAddress("localhost", "localhost", 8080, Set.of(NodeRole.INDEX, NodeRole.KVSTORE));
+                searchProvider = new RemoteSearchProvider(self);
+                docStore = typedKvStore != null ? new RemoteDocumentStore(self) : null;
+            } else {
+                searchProvider = new LuceneSearchProvider(indexManager);
+                docStore = typedKvStore != null ? new LocalKVDocumentStore(typedKvStore) : null;
+            }
+            RetrievalService service = docStore != null
+                    ? new RetrievalService(searchProvider, docStore)
+                    : new RetrievalService(searchProvider);
+
+            // Enable AI summarization if Ollama is available
+            if (body.has("query") && body.get("query").has("summarize")) {
+                service.enableSummarization(createAIOperations());
+            }
 
             RetrievalConfig config = new RetrievalConfig(indexName, type, lang);
             RetrievalResult retrievalResult = service.retrieve(config, query);
@@ -498,7 +554,21 @@ public class RetrievalController {
             if (body.get("query").has("fixup")) stagesUsed.add("FixupRetriever");
             if (body.get("query").has("page")) stagesUsed.add("PaginationRetriever");
             if (sr != null && sr.hasFacets()) stagesUsed.add("FacetRetriever");
+            if (body.get("query").has("summarize")) stagesUsed.add("SummarizationRetriever");
             result.put("stagesUsed", stagesUsed);
+
+            // Context attributes (inter-stage metadata)
+            Map<String, Object> attrs = new LinkedHashMap<>();
+            var ctx = retrievalResult.getContext();
+            if (ctx.hasAttribute(ContextAttributes.SEARCH_PROVIDERS))
+                attrs.put("searchProvider", ctx.getAttribute(ContextAttributes.SEARCH_PROVIDERS, String.class));
+            if (ctx.hasAttribute(ContextAttributes.TOTAL_HITS))
+                attrs.put("totalHits", ctx.getAttribute(ContextAttributes.TOTAL_HITS, Long.class));
+            if (ctx.hasAttribute(ContextAttributes.DOCUMENT_STORE_TYPE))
+                attrs.put("documentStore", ctx.getAttribute(ContextAttributes.DOCUMENT_STORE_TYPE, String.class));
+            if (ctx.hasAttribute(ContextAttributes.AI_SUMMARY))
+                attrs.put("aiSummary", ctx.getAttribute(ContextAttributes.AI_SUMMARY, String.class));
+            if (!attrs.isEmpty()) result.put("contextAttributes", attrs);
 
             result.put("success", true);
         } catch (Exception e) {
@@ -512,6 +582,132 @@ public class RetrievalController {
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────
+
+    // ─── Wire Transport ────────────────────────────────────────────
+
+    /** Endpoint that RemoteSearchProvider calls. */
+    @GetMapping("/search")
+    public ResponseEntity<Map<String, Object>> remoteSearch(
+            @RequestParam String index,
+            @RequestParam String q,
+            @RequestParam(defaultValue = "0") int offset,
+            @RequestParam(defaultValue = "20") int limit,
+            @RequestParam(defaultValue = "en") String lang,
+            @RequestParam(required = false) String facets) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        try {
+            List<String> facetDims = (facets != null && !facets.isBlank())
+                    ? List.of(facets.split(",")) : null;
+            SearchResult sr = indexManager.search(index, q, offset, limit, facetDims, lang);
+            result.put("documents", sr.getDocuments().stream().map(JVS::getJsonNode).toList());
+            result.put("totalHits", sr.getTotalHits());
+            result.put("searchTimeMs", sr.getSearchTimeMs());
+        } catch (Exception e) {
+            result.put("error", e.getMessage());
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    /** Endpoint that RemoteDocumentStore calls. */
+    @GetMapping("/documents/{key}")
+    public ResponseEntity<JsonNode> remoteDocument(@PathVariable String key) {
+        if (typedKvStore == null) {
+            return ResponseEntity.notFound().build();
+        }
+        var kvResult = typedKvStore.get(key);
+        if (kvResult.isSuccess() && kvResult.getValue().isPresent()) {
+            return ResponseEntity.ok(kvResult.getValue().get());
+        }
+        return ResponseEntity.notFound().build();
+    }
+
+    /** Health check for RemoteSearchProvider/RemoteDocumentStore availability detection. */
+    @GetMapping("/health")
+    public ResponseEntity<Map<String, Object>> health() {
+        return ResponseEntity.ok(Map.of("status", "ok", "indexes", indexMetas.size()));
+    }
+
+    @PostMapping("/transport/toggle")
+    public ResponseEntity<Map<String, Object>> toggleTransport() {
+        useRemoteTransport = !useRemoteTransport;
+        return ResponseEntity.ok(Map.of("remote", useRemoteTransport,
+                "description", useRemoteTransport
+                        ? "Using wire transport (HTTP calls to localhost — same JVM, demonstrating the remote protocol)"
+                        : "Using local in-process providers (direct Lucene + KVStore calls)"));
+    }
+
+    @GetMapping("/transport/status")
+    public ResponseEntity<Map<String, Object>> transportStatus() {
+        return ResponseEntity.ok(Map.of("remote", useRemoteTransport));
+    }
+
+    private ResultMerger selectMerger(String name) {
+        return switch (name) {
+            case "field" -> new FieldSortMerger();
+            case "rrf" -> new RRFMerger();
+            default -> new ScoreMerger();
+        };
+    }
+
+    private List<JVS> fetchFromKv(List<JVS> docs) {
+        List<JVS> kvDocs = new ArrayList<>();
+        for (JVS doc : docs) {
+            String key = buildKey(doc);
+            if (key != null && typedKvStore != null) {
+                var kvResult = typedKvStore.get(key);
+                if (kvResult.isSuccess() && kvResult.getValue().isPresent()) {
+                    JVS fullDoc = new JVS(kvResult.getValue().get());
+                    if (doc.exists("_score")) fullDoc.set("_score", doc.get("_score"));
+                    if (doc.exists("_index")) fullDoc.set("_index", doc.get("_index"));
+                    if (doc.exists("_uid")) fullDoc.set("_uid", doc.get("_uid"));
+                    kvDocs.add(fullDoc);
+                    continue;
+                }
+            }
+            kvDocs.add(doc);
+        }
+        return kvDocs;
+    }
+
+    private AIOperations createAIOperations() {
+        return new AIOperations() {
+            @Override public String translate(String text, String src, String tgt) {
+                return jvsService.callOllamaTranslate(text, src, tgt);
+            }
+            @Override public String summarize(String text, int maxWords) {
+                try {
+                    var status = jvsService.getTranslationStatus();
+                    if (!Boolean.TRUE.equals(status.get("available"))) return null;
+
+                    String prompt = "Summarize the following search results in " + maxWords + " words or fewer. "
+                            + "Focus on the key themes and important findings:\n\n" + text;
+                    var body = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode();
+                    body.put("model", (String) status.getOrDefault("model", "llama3.2"));
+                    body.put("prompt", prompt);
+                    body.put("stream", false);
+
+                    var client = java.net.http.HttpClient.newHttpClient();
+                    var request = java.net.http.HttpRequest.newBuilder()
+                            .uri(java.net.URI.create(status.getOrDefault("url", "http://localhost:11434") + "/api/generate"))
+                            .header("Content-Type", "application/json")
+                            .POST(java.net.http.HttpRequest.BodyPublishers.ofString(body.toString()))
+                            .build();
+                    var response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+                    var responseJson = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.body());
+                    if (responseJson.has("response")) return responseJson.get("response").asText().trim();
+                } catch (Exception e) {
+                    log.warn("AI summarization failed: {}", e.getMessage());
+                }
+                return null;
+            }
+            @Override public String ask(String text, String question) { return null; }
+            @Override public boolean isAvailable() {
+                try {
+                    return Boolean.TRUE.equals(jvsService.getTranslationStatus().get("available"));
+                } catch (Exception e) { return false; }
+            }
+        };
+    }
 
     private void storeInKv(List<JVS> docs) {
         if (typedKvStore == null) return;

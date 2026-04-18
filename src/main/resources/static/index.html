@@ -728,8 +728,9 @@ Pipelines:
         <div class="card">
             <h2>Object Retrieval &amp; Search</h2>
             <p class="description">
-                Multi-index retrieval pipeline (<code>hitorro-retrieval</code>): create named indexes, load typed datasets with optional NLP enrichment,
-                and execute configurable pipeline stages (search, document fetch, enrichment, pagination, facets). Search across multiple indexes simultaneously.
+                Multi-index retrieval pipeline (<code>hitorro-retrieval</code>) with pluggable search providers, sort-aware result merging, AI summarization, and KVStore document fetch.
+                <strong>Single index</strong>: full pipeline (search &rarr; fetch &rarr; enrich &rarr; paginate &rarr; facets &rarr; summarize).
+                <strong>Multiple indexes</strong>: CompositeSearchProvider fans out to per-index providers, merges results via Score, RRF, or Field sort.
             </p>
             <div id="rt-status-msg"></div>
         </div>
@@ -785,6 +786,15 @@ Pipelines:
                         <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.25rem">
                             <button class="btn-secondary" id="rt-kv-btn" onclick="rtToggleKvStore()">Enable KVStore</button>
                             <span id="rt-kv-status" class="badge badge-gray">Disabled</span>
+                        </div>
+                    </div>
+
+                    <div style="border-top:1px solid #e2e8f0;padding-top:0.75rem;margin-top:0.75rem">
+                        <label>Transport Mode</label>
+                        <p style="font-size:0.75rem;color:#64748b;margin-bottom:0.25rem">Switch between local in-process calls and wire transport (HTTP). Remote mode calls the same JVM via HTTP to demonstrate the protocol.</p>
+                        <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.25rem">
+                            <button class="btn-secondary" id="rt-transport-btn" onclick="rtToggleTransport()">Switch to Remote</button>
+                            <span id="rt-transport-status" class="badge badge-green">Local</span>
                         </div>
                     </div>
                 </div>
@@ -899,6 +909,32 @@ Pipelines:
                         </div>
                     </div>
 
+                    <!-- Summarization Stage -->
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:0.375rem;padding:0.75rem;margin-bottom:0.75rem">
+                        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">
+                            <span class="badge badge-red">Stage 6</span>
+                            <strong style="font-size:0.85rem">SummarizationRetriever</strong>
+                            <span style="font-size:0.75rem;color:#64748b">-- AI-powered result summary (requires Ollama)</span>
+                        </div>
+                        <div class="checkbox-group">
+                            <label><input type="checkbox" id="rt-summarize-enabled"> Enable AI summarization</label>
+                        </div>
+                    </div>
+
+                    <!-- Merge Strategy (for multi-index) -->
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:0.375rem;padding:0.75rem;margin-bottom:0.75rem">
+                        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">
+                            <span class="badge badge-blue">Multi-Index</span>
+                            <strong style="font-size:0.85rem">Result Merger</strong>
+                            <span style="font-size:0.75rem;color:#64748b">-- how to merge results when searching multiple indexes</span>
+                        </div>
+                        <div style="display:flex;gap:0.75rem;flex-wrap:wrap">
+                            <label><input type="radio" name="rt-merger" value="score" checked> Score (relevance)</label>
+                            <label><input type="radio" name="rt-merger" value="rrf"> RRF (rank fusion)</label>
+                            <label><input type="radio" name="rt-merger" value="field"> Field sort</label>
+                        </div>
+                    </div>
+
                     <button class="btn-primary" onclick="rtExecutePipeline()" id="rt-execute-btn" style="font-size:1rem;padding:0.6rem 1.5rem">
                         Execute Pipeline
                     </button>
@@ -911,6 +947,7 @@ Pipelines:
                     <div id="rt-result-stages" style="margin-bottom:0.75rem"></div>
                     <div id="rt-result-facets" style="margin-bottom:0.75rem"></div>
                     <div id="rt-result-aggregates" style="margin-bottom:0.75rem"></div>
+                    <div id="rt-result-context" style="margin-bottom:0.75rem"></div>
                     <label>Documents</label>
                     <div id="rt-result-docs" class="result" style="max-height:800px"></div>
                 </div>
@@ -2179,6 +2216,12 @@ async function rtLoadStatus() {
         rtRefreshIndexList(data.indexDetails || []);
         rtKvEnabled = !!data.kvStoreEnabled;
         rtUpdateKvUi();
+        // Load transport status
+        try {
+            var ts = await fetch('/api/retrieval/transport/status').then(r => r.json());
+            rtRemoteTransport = ts.remote;
+            rtUpdateTransportUi();
+        } catch (e) {}
         rtPopulateTypeSelector();
         rtLoadDatasets();
     } catch (e) {
@@ -2362,6 +2405,35 @@ function rtUpdateKvUi() {
     }
 }
 
+let rtRemoteTransport = false;
+
+async function rtToggleTransport() {
+    try {
+        var res = await fetch('/api/retrieval/transport/toggle', { method: 'POST' }).then(r => r.json());
+        rtRemoteTransport = res.remote;
+        rtUpdateTransportUi();
+        document.getElementById('rt-status-msg').innerHTML = '<div class="status-msg ' + (rtRemoteTransport ? 'status-info' : 'status-ok') + '">' + escapeHtml(res.description) + '</div>';
+    } catch (e) {
+        document.getElementById('rt-status-msg').innerHTML = '<div class="status-msg status-err">' + escapeHtml(e.message) + '</div>';
+    }
+}
+
+function rtUpdateTransportUi() {
+    var btn = document.getElementById('rt-transport-btn');
+    var status = document.getElementById('rt-transport-status');
+    if (rtRemoteTransport) {
+        btn.textContent = 'Switch to Local';
+        btn.className = 'btn-amber';
+        status.textContent = 'Remote (HTTP)';
+        status.className = 'badge badge-amber';
+    } else {
+        btn.textContent = 'Switch to Remote';
+        btn.className = 'btn-secondary';
+        status.textContent = 'Local';
+        status.className = 'badge badge-green';
+    }
+}
+
 async function rtExecutePipeline() {
     var selectedIndexes = [];
     document.querySelectorAll('.rt-idx-cb:checked').forEach(function(cb) { selectedIndexes.push(cb.value); });
@@ -2375,6 +2447,7 @@ async function rtExecutePipeline() {
     document.getElementById('rt-result-stages').innerHTML = '';
     document.getElementById('rt-result-facets').innerHTML = '';
     document.getElementById('rt-result-aggregates').innerHTML = '';
+    document.getElementById('rt-result-context').innerHTML = '';
 
     try {
         // Build query object
@@ -2408,7 +2481,13 @@ async function rtExecutePipeline() {
             };
         }
 
+        // Summarization stage
+        if (document.getElementById('rt-summarize-enabled').checked) {
+            query.summarize = { enabled: true, maxDocs: 10, maxWords: 200 };
+        }
+
         var lang = document.getElementById('rt-query-lang').value || 'en';
+        var mergerValue = document.querySelector('input[name="rt-merger"]:checked').value;
         var res;
 
         if (selectedIndexes.length === 1) {
@@ -2428,7 +2507,8 @@ async function rtExecutePipeline() {
                 offset: query.search.offset || 0,
                 limit: query.search.limit || 20,
                 lang: lang,
-                useKvStore: document.getElementById('rt-fetch-enabled').checked && rtKvEnabled
+                useKvStore: document.getElementById('rt-fetch-enabled').checked && rtKvEnabled,
+                merger: mergerValue
             };
             res = await fetch('/api/retrieval/search-multiple', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -2445,6 +2525,8 @@ async function rtExecutePipeline() {
         if (res._mode === 'multi-index') metaHtml += '<span class="badge badge-purple">Multi-Index</span>';
         else metaHtml += '<span class="badge badge-purple">Pipeline</span>';
         if (res.source) metaHtml += '<span class="badge ' + (res.source === 'kvstore' ? 'badge-green' : 'badge-gray') + '">Source: ' + res.source + '</span>';
+        if (res.merger) metaHtml += '<span class="badge badge-purple">Merger: ' + escapeHtml(res.merger) + '</span>';
+        metaHtml += '<span class="badge ' + (rtRemoteTransport ? 'badge-amber' : 'badge-green') + '">' + (rtRemoteTransport ? 'Remote (HTTP)' : 'Local') + '</span>';
         res._indexes.forEach(function(idx) { metaHtml += '<span class="badge badge-gray">' + escapeHtml(idx) + '</span>'; });
         if (res.totalHits !== undefined) metaHtml += '<span class="badge badge-blue">Total Hits: ' + res.totalHits + '</span>';
         metaHtml += '<span class="badge badge-green">Returned: ' + (res.documentCount || 0) + '</span>';
@@ -2459,7 +2541,7 @@ async function rtExecutePipeline() {
 
         // Stages used
         if (res.stagesUsed) {
-            var stageColors = { IndexRetriever: 'badge-blue', DocumentRetriever: 'badge-green', FixupRetriever: 'badge-amber', PaginationRetriever: 'badge-purple', FacetRetriever: 'badge-gray' };
+            var stageColors = { IndexRetriever: 'badge-blue', DocumentRetriever: 'badge-green', FixupRetriever: 'badge-amber', PaginationRetriever: 'badge-purple', FacetRetriever: 'badge-gray', SummarizationRetriever: 'badge-red' };
             var stagesHtml = '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center"><strong style="font-size:0.8rem;color:#64748b">Pipeline:</strong>';
             res.stagesUsed.forEach(function(s, i) {
                 if (i > 0) stagesHtml += '<span style="color:#94a3b8">→</span>';
@@ -2499,6 +2581,24 @@ async function rtExecutePipeline() {
                 aggHtml += '</details>';
             });
             document.getElementById('rt-result-aggregates').innerHTML = aggHtml;
+        }
+
+        // Context attributes (inter-stage metadata)
+        if (res.contextAttributes) {
+            var ctxHtml = '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:0.375rem;padding:0.5rem;font-size:0.8rem">';
+            ctxHtml += '<strong style="color:#1e40af">Context Attributes</strong>';
+            for (var k in res.contextAttributes) {
+                var v = res.contextAttributes[k];
+                if (k === 'aiSummary') {
+                    ctxHtml += '<div style="margin-top:0.5rem;padding:0.5rem;background:white;border-radius:0.25rem;border:1px solid #e2e8f0">';
+                    ctxHtml += '<strong style="color:#7c3aed">AI Summary:</strong> ' + escapeHtml(String(v));
+                    ctxHtml += '</div>';
+                } else {
+                    ctxHtml += '<div style="margin-top:0.15rem"><span style="color:#64748b">' + escapeHtml(k) + ':</span> ' + escapeHtml(String(v)) + '</div>';
+                }
+            }
+            ctxHtml += '</div>';
+            document.getElementById('rt-result-context').innerHTML = ctxHtml;
         }
 
         // Documents
