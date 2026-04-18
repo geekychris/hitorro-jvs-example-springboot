@@ -396,6 +396,15 @@ public class RetrievalController {
             boolean useKvStore = body.has("useKvStore") && body.get("useKvStore").asBoolean();
             String mergerName = body.has("merger") ? body.get("merger").asText() : "score";
 
+            // Extract facet dimensions
+            List<String> facetDims = null;
+            if (body.has("facets")) {
+                String facetStr = body.get("facets").asText();
+                if (facetStr != null && !facetStr.isBlank()) {
+                    facetDims = List.of(facetStr.split(","));
+                }
+            }
+
             // Build per-index providers and merge via CompositeSearchProvider
             List<SearchProvider> providers = new ArrayList<>();
             if (useRemoteTransport) {
@@ -425,7 +434,7 @@ public class RetrievalController {
 
             ResultMerger merger = selectMerger(mergerName);
             CompositeSearchProvider composite = new CompositeSearchProvider(providers, merger);
-            SearchResult sr = composite.search("multi", query, offset, limit, null, lang);
+            SearchResult sr = composite.search("multi", query, offset, limit, facetDims, lang);
 
             // Fetch from KVStore if enabled
             List<JVS> docs = sr.getDocuments();
@@ -442,6 +451,16 @@ public class RetrievalController {
             result.put("searchTimeMs", sr.getSearchTimeMs());
             result.put("indexNames", indexNames);
             result.put("merger", merger.getName());
+            // Extract merged facets
+            if (sr.hasFacets()) {
+                Map<String, Object> facetMap = new LinkedHashMap<>();
+                sr.getFacets().forEach((dim, fr) -> {
+                    List<Map<String, Object>> values = new ArrayList<>();
+                    fr.getValues().forEach(fv -> values.add(Map.of("value", fv.getValue(), "count", fv.getCount())));
+                    facetMap.put(dim, Map.of("values", values, "totalCount", fr.getTotalCount()));
+                });
+                result.put("facets", facetMap);
+            }
             result.put("searchProviders", providers.stream().map(SearchProvider::getName).toList());
             result.put("stagesUsed", List.of(
                     "CompositeSearchProvider (" + composite.getName() + ")",
@@ -581,6 +600,77 @@ public class RetrievalController {
         return ResponseEntity.ok(result);
     }
 
+    // ─── Streaming Execute (NDJson unified stream) ────────────────
+
+    /**
+     * Execute retrieval pipeline and return results as NDJson unified stream.
+     * Stream order: metadata, documents, facets, aggregates.
+     * Documents can be consumed as they arrive; facets/aggregates follow at the tail.
+     */
+    @PostMapping(value = "/execute/stream", produces = "application/x-ndjson")
+    public org.springframework.http.ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody>
+    executeRetrievalStream(@RequestBody JsonNode body) {
+        org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody streamBody = outputStream -> {
+            try {
+                String indexName = body.has("indexName") ? body.get("indexName").asText() : null;
+                if (indexName == null || !indexManager.hasIndex(indexName)) return;
+
+                JVS query = new JVS(body.get("query"));
+                IndexMeta meta = indexMetas.get(indexName);
+                Type type = null;
+                if (meta != null && meta.typeName != null && jvsService.isTypeSystemAvailable()) {
+                    type = JsonTypeSystem.getMe().getType(meta.typeName);
+                }
+                String lang = body.has("lang") ? body.get("lang").asText() : "en";
+
+                SearchProvider searchProvider = useRemoteTransport
+                        ? new com.hitorro.retrieval.search.RemoteSearchProvider(
+                            new com.hitorro.retrieval.cluster.NodeAddress("localhost", "localhost", 8080, Set.of(com.hitorro.retrieval.cluster.NodeRole.INDEX)))
+                        : new LuceneSearchProvider(indexManager);
+                DocumentStore docStore = typedKvStore != null ? new LocalKVDocumentStore(typedKvStore) : null;
+                RetrievalService service = docStore != null
+                        ? new RetrievalService(searchProvider, docStore)
+                        : new RetrievalService(searchProvider);
+                if (body.has("query") && body.get("query").has("summarize")) {
+                    service.enableSummarization(createAIOperations());
+                }
+
+                RetrievalConfig config = new RetrievalConfig(indexName, type, lang);
+                RetrievalResult retrievalResult = service.retrieve(config, query);
+
+                var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                var writer = new java.io.OutputStreamWriter(outputStream, java.nio.charset.StandardCharsets.UTF_8);
+
+                // Write metadata line
+                SearchResult sr = retrievalResult.getSearchResult();
+                if (sr != null) {
+                    Map<String, Object> metaMap = new LinkedHashMap<>();
+                    metaMap.put("_type", "meta");
+                    metaMap.put("totalHits", sr.getTotalHits());
+                    metaMap.put("searchTimeMs", sr.getSearchTimeMs());
+                    writer.write(mapper.writeValueAsString(metaMap));
+                    writer.write('\n');
+                    writer.flush();
+                }
+
+                // Stream unified results: docs first, then facets/aggregates at tail
+                var unified = retrievalResult.unifiedStream();
+                while (unified.hasNext()) {
+                    JVS item = unified.next();
+                    writer.write(mapper.writeValueAsString(item.getJsonNode()));
+                    writer.write('\n');
+                    writer.flush();
+                }
+            } catch (Exception e) {
+                log.error("Streaming execute failed", e);
+            }
+        };
+
+        return org.springframework.http.ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.parseMediaType("application/x-ndjson"))
+                .body(streamBody);
+    }
+
     // ─── Helpers ─────────────────────────────────────────────────────
 
     // ─── Wire Transport ────────────────────────────────────────────
@@ -669,44 +759,76 @@ public class RetrievalController {
         return kvDocs;
     }
 
+    /**
+     * Creates an AIOperations that tries Ollama first, falls back to extractive summary.
+     * Always reports isAvailable()=true so the stage always participates.
+     */
     private AIOperations createAIOperations() {
         return new AIOperations() {
             @Override public String translate(String text, String src, String tgt) {
                 return jvsService.callOllamaTranslate(text, src, tgt);
             }
             @Override public String summarize(String text, int maxWords) {
+                // Try Ollama first
                 try {
                     var status = jvsService.getTranslationStatus();
-                    if (!Boolean.TRUE.equals(status.get("available"))) return null;
+                    if (Boolean.TRUE.equals(status.get("available"))) {
+                        String prompt = "Summarize the following search results in " + maxWords + " words or fewer. "
+                                + "Focus on the key themes and important findings:\n\n" + text;
+                        var body = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode();
+                        body.put("model", (String) status.getOrDefault("model", "llama3.2"));
+                        body.put("prompt", prompt);
+                        body.put("stream", false);
 
-                    String prompt = "Summarize the following search results in " + maxWords + " words or fewer. "
-                            + "Focus on the key themes and important findings:\n\n" + text;
-                    var body = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode();
-                    body.put("model", (String) status.getOrDefault("model", "llama3.2"));
-                    body.put("prompt", prompt);
-                    body.put("stream", false);
-
-                    var client = java.net.http.HttpClient.newHttpClient();
-                    var request = java.net.http.HttpRequest.newBuilder()
-                            .uri(java.net.URI.create(status.getOrDefault("url", "http://localhost:11434") + "/api/generate"))
-                            .header("Content-Type", "application/json")
-                            .POST(java.net.http.HttpRequest.BodyPublishers.ofString(body.toString()))
-                            .build();
-                    var response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
-                    var responseJson = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.body());
-                    if (responseJson.has("response")) return responseJson.get("response").asText().trim();
+                        var client = java.net.http.HttpClient.newHttpClient();
+                        var request = java.net.http.HttpRequest.newBuilder()
+                                .uri(java.net.URI.create(status.getOrDefault("url", "http://localhost:11434") + "/api/generate"))
+                                .header("Content-Type", "application/json")
+                                .POST(java.net.http.HttpRequest.BodyPublishers.ofString(body.toString()))
+                                .build();
+                        var response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+                        var responseJson = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.body());
+                        if (responseJson.has("response")) {
+                            return "[Ollama] " + responseJson.get("response").asText().trim();
+                        }
+                    }
                 } catch (Exception e) {
-                    log.warn("AI summarization failed: {}", e.getMessage());
+                    log.debug("Ollama unavailable, using extractive summary: {}", e.getMessage());
                 }
-                return null;
+
+                // Fallback: extractive summary (first N sentences from the input)
+                return buildExtractiveSummary(text, maxWords);
             }
             @Override public String ask(String text, String question) { return null; }
-            @Override public boolean isAvailable() {
-                try {
-                    return Boolean.TRUE.equals(jvsService.getTranslationStatus().get("available"));
-                } catch (Exception e) { return false; }
-            }
+            @Override public boolean isAvailable() { return true; } // always available via fallback
         };
+    }
+
+    /**
+     * Simple extractive summary: extracts the first few document titles/sentences
+     * from the concatenated text. No LLM needed.
+     */
+    private String buildExtractiveSummary(String text, int maxWords) {
+        if (text == null || text.isBlank()) return "No content to summarize.";
+
+        StringBuilder summary = new StringBuilder("[Extractive] ");
+        String[] lines = text.split("\n");
+        int wordCount = 0;
+        for (String line : lines) {
+            line = line.trim();
+            if (line.isEmpty() || line.startsWith("Document ")) continue;
+            // Take the first meaningful content from each document
+            String[] words = line.split("\\s+");
+            for (String word : words) {
+                if (wordCount >= maxWords) break;
+                if (wordCount > 0) summary.append(' ');
+                summary.append(word);
+                wordCount++;
+            }
+            if (wordCount >= maxWords) break;
+            summary.append(". ");
+        }
+        return summary.toString().trim();
     }
 
     private void storeInKv(List<JVS> docs) {

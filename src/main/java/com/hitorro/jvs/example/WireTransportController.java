@@ -78,20 +78,35 @@ public class WireTransportController {
 
                 // Line 1: metadata
                 Map<String, Object> meta = new java.util.LinkedHashMap<>();
+                meta.put("_type", "meta");
                 meta.put("totalHits", result.get("totalHits"));
                 meta.put("searchTimeMs", result.get("searchTimeMs"));
                 writer.write(mapper.writeValueAsString(meta));
                 writer.write('\n');
                 writer.flush();
 
-                // Remaining lines: one document per line
+                // Lines 2-N: one document per line
                 Object docs = result.get("documents");
                 if (docs instanceof List<?> docList) {
                     for (Object doc : docList) {
+                        if (doc instanceof java.util.Map<?,?> docMap) {
+                            ((java.util.Map) docMap).putIfAbsent("_type", "doc");
+                        }
                         writer.write(mapper.writeValueAsString(doc));
                         writer.write('\n');
-                        writer.flush(); // flush each line for true streaming
+                        writer.flush();
                     }
+                }
+
+                // Tail: facets after all documents
+                Object facetsObj = result.get("facets");
+                if (facetsObj != null) {
+                    Map<String, Object> facetLine = new java.util.LinkedHashMap<>();
+                    facetLine.put("_type", "facets");
+                    facetLine.putAll((java.util.Map<String, Object>) facetsObj);
+                    writer.write(mapper.writeValueAsString(facetLine));
+                    writer.write('\n');
+                    writer.flush();
                 }
             } catch (Exception e) {
                 // Stream already started, can't change status code
