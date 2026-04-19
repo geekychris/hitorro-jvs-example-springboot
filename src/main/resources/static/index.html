@@ -606,123 +606,6 @@ Pipelines:
         </div>
         </div><!-- end subtab-simple-search -->
 
-    <!-- ==================== Index Viewer Tab ==================== -->
-    <div id="tab-viewer" class="hidden">
-        <div class="card">
-            <h2>Lucene Index Viewer</h2>
-            <p class="description">
-                Inspect the Lucene index internals: statistics, fields, stored documents, and term frequencies.
-                Index documents first via the Search tab.
-            </p>
-            <div class="btn-group">
-                <button class="btn-primary" onclick="viewerStats()">Index Stats</button>
-                <button class="btn-primary" onclick="viewerFields()">List Fields</button>
-                <button class="btn-primary" onclick="viewerDocs()">List Documents</button>
-            </div>
-            <div id="viewer-result" class="result" style="min-height:300px">
-                Click a button above to inspect the Lucene index.
-            </div>
-        </div>
-
-        <div class="card">
-            <h2>Term Browser</h2>
-            <p class="description">Browse terms in a specific field. Select a field from the list above first.</p>
-            <div style="display:flex;gap:0.75rem;align-items:end;margin-bottom:0.75rem">
-                <div style="flex:1">
-                    <label>Field Name</label>
-                    <input type="text" id="viewer-term-field" placeholder="e.g. title.mls.clean.text_en_s" style="width:100%">
-                </div>
-                <div>
-                    <label>Limit</label>
-                    <input type="text" id="viewer-term-limit" value="50" style="width:60px">
-                </div>
-                <button class="btn-primary" onclick="viewerTerms()">Browse Terms</button>
-            </div>
-            <div id="viewer-terms-result" class="result" style="min-height:200px">
-                Enter a field name and click Browse Terms.
-            </div>
-        </div>
-
-        <div class="card">
-            <h2>KVStore Document Fetch</h2>
-            <p class="description">Fetch the full document from the RocksDB KVStore by ID (domain/did).</p>
-            <div style="display:flex;gap:0.75rem;align-items:end;margin-bottom:0.75rem">
-                <div>
-                    <label>Domain</label>
-                    <input type="text" id="kv-domain" value="legal" style="width:120px">
-                </div>
-                <div>
-                    <label>Document ID</label>
-                    <input type="text" id="kv-did" value="doc-001" style="width:120px">
-                </div>
-                <button class="btn-primary" onclick="kvFetch()">Fetch Document</button>
-            </div>
-            <div id="kv-result" class="result" style="min-height:200px">
-                Enter domain and document ID, then click Fetch.
-            </div>
-        </div>
-    </div>
-
-    <!-- ==================== Features Tab ==================== -->
-    <div id="tab-features" class="hidden">
-        <div class="card">
-            <h2>Feature Extraction</h2>
-            <p class="description">
-                Extract computed features from JSON documents. Paste a single document or a JSON array of multiple documents.
-                Extracted features are stored in memory for subsequent indexing and querying.
-            </p>
-            <div id="feat-status" style="margin-bottom:0.75rem"></div>
-            <div class="grid-2">
-                <div>
-                    <label>JSON Document(s) <span class="description">(single object or array)</span></label>
-                    <textarea id="feat-input" rows="14" style="width:100%;font-family:monospace;font-size:0.75rem;padding:0.5rem;border:1px solid #e2e8f0;border-radius:0.375rem" placeholder='[{"id":1,"title":"First","body":"Hello world"},{"id":2,"title":"Second","body":"Another doc"}]'></textarea>
-                    <div style="display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap">
-                        <button class="btn-primary" onclick="extractFeatures()">Extract Features</button>
-                        <button class="btn-secondary" onclick="loadSampleDocs()">Load Samples</button>
-                        <button class="btn-secondary" onclick="clearFeatures()">Clear All</button>
-                    </div>
-                </div>
-                <div>
-                    <label>Extraction Results</label>
-                    <div id="feat-results" style="min-height:200px;max-height:400px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:0.375rem;padding:0.5rem;background:#fafafa">
-                        <p class="description">Paste documents and click Extract.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="card" style="margin-top:1rem">
-            <h2>Feature Index</h2>
-            <p class="description">
-                Index extracted features into the binary feature index, then query feature values by document ID.
-            </p>
-            <div style="display:flex;gap:0.5rem;align-items:end;flex-wrap:wrap;margin-bottom:0.75rem">
-                <button class="btn-primary" onclick="indexFeatures()">Build Index</button>
-                <span id="feat-index-status"></span>
-            </div>
-            <div class="grid-2">
-                <div>
-                    <label>Query Feature Index</label>
-                    <div style="display:flex;gap:0.5rem;margin-bottom:0.5rem">
-                        <input type="number" id="feat-query-docid" placeholder="Doc ID (e.g. 1)" style="width:120px">
-                        <select id="feat-query-feature" style="min-width:150px"></select>
-                        <button class="btn-primary" onclick="queryFeatureIndex()">Query</button>
-                    </div>
-                    <div id="feat-query-result"></div>
-                </div>
-                <div>
-                    <label>Extracted Documents</label>
-                    <div id="feat-extracted-docs" style="max-height:250px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:0.375rem;padding:0.5rem;background:#fafafa;font-size:0.75rem">
-                        <p class="description">No documents extracted yet.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="card" style="margin-top:1rem">
-            <h2>Available Features</h2>
-            <div id="feat-definitions"></div>
-        </div>
-    </div>
-
         <!-- ── Sub-tab: Object Retrieval ── -->
         <div id="subtab-object-retrieval" class="hidden">
         <div class="card">
@@ -832,8 +715,17 @@ Pipelines:
                             <strong style="font-size:0.85rem">IndexRetriever</strong>
                             <span style="font-size:0.75rem;color:#64748b">-- Lucene search</span>
                         </div>
-                        <label>Query (Lucene syntax)</label>
-                        <input type="text" id="rt-search-query" value="*:*" style="width:100%;margin-bottom:0.5rem">
+                        <label>Query <span style="font-weight:400;color:#64748b">(click fields below to insert, supports AND, OR, phrases, wildcards)</span></label>
+                        <div style="display:flex;gap:0.5rem;margin-bottom:0.5rem">
+                            <input type="text" id="rt-search-query" value="*:*" style="flex:1" placeholder="field:term AND field:term">
+                            <button class="btn-secondary" onclick="rtInsertOperator(' AND ')" style="font-size:0.75rem;padding:0.25rem 0.5rem">AND</button>
+                            <button class="btn-secondary" onclick="rtInsertOperator(' OR ')" style="font-size:0.75rem;padding:0.25rem 0.5rem">OR</button>
+                            <button class="btn-secondary" onclick="rtInsertOperator(' NOT ')" style="font-size:0.75rem;padding:0.25rem 0.5rem">NOT</button>
+                            <button class="btn-secondary" onclick="document.getElementById('rt-search-query').value='*:*'" style="font-size:0.75rem;padding:0.25rem 0.5rem">Clear</button>
+                        </div>
+                        <div id="rt-field-suggestions" style="display:flex;gap:0.35rem;flex-wrap:wrap;margin-bottom:0.5rem;max-height:80px;overflow-y:auto">
+                            <span style="color:#94a3b8;font-size:0.75rem">Select an index to see searchable fields</span>
+                        </div>
                         <div style="display:flex;gap:0.75rem;flex-wrap:wrap">
                             <div>
                                 <label>Offset</label>
@@ -963,7 +855,13 @@ Pipelines:
                         </div>
                     </div>
 
-                    <label>Documents</label>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem">
+                        <label>Documents</label>
+                        <div style="display:flex;gap:0.25rem">
+                            <button class="btn-secondary" id="rt-view-pretty" onclick="rtSetViewMode('pretty')" style="font-size:0.7rem;padding:0.15rem 0.5rem;background:#3b82f6;color:white">Pretty</button>
+                            <button class="btn-secondary" id="rt-view-json" onclick="rtSetViewMode('json')" style="font-size:0.7rem;padding:0.15rem 0.5rem">JSON</button>
+                        </div>
+                    </div>
                     <div id="rt-result-docs" class="result" style="max-height:600px"></div>
 
                     <div style="margin-top:0.75rem;display:flex;gap:0.75rem;flex-wrap:wrap">
@@ -982,6 +880,63 @@ Pipelines:
         </div><!-- end subtab-object-retrieval -->
 
     </div><!-- end tab-search -->
+
+    <!-- ==================== Index Viewer Tab ==================== -->
+    <div id="tab-viewer" class="hidden">
+        <div class="card">
+            <h2>Lucene Index Viewer</h2>
+            <p class="description">Inspect the Lucene index internals: statistics, fields, stored documents, and term frequencies.</p>
+            <div style="margin-bottom:0.75rem">
+                <label>Select Index</label>
+                <select id="viewer-index-select" style="min-width:200px" onchange="viewerIndexChanged()">
+                    <option value="">Simple Search (documents)</option>
+                </select>
+                <button class="btn-secondary" onclick="viewerRefreshIndexList()" style="font-size:0.75rem;padding:0.2rem 0.5rem;margin-left:0.5rem">Refresh</button>
+            </div>
+            <div class="btn-group">
+                <button class="btn-primary" onclick="viewerStats()">Index Stats</button>
+                <button class="btn-primary" onclick="viewerFields()">List Fields</button>
+                <button class="btn-primary" onclick="viewerDocs()">List Documents</button>
+            </div>
+            <div id="viewer-result" class="result" style="min-height:300px">Click a button above to inspect the Lucene index.</div>
+        </div>
+        <div class="card">
+            <h2>Term Browser</h2>
+            <p class="description">Browse terms in a specific field. Click a field name above to populate.</p>
+            <div style="display:flex;gap:0.75rem;align-items:end;margin-bottom:0.75rem">
+                <div style="flex:1">
+                    <label>Field Name</label>
+                    <input type="text" id="viewer-term-field" placeholder="e.g. title.mls.clean.text_en_s" style="width:100%">
+                </div>
+                <div>
+                    <label>Limit</label>
+                    <input type="text" id="viewer-term-limit" value="50" style="width:60px">
+                </div>
+                <button class="btn-primary" onclick="viewerTerms()">Browse Terms</button>
+            </div>
+            <div id="viewer-terms-result" class="result" style="min-height:200px">Enter a field name and click Browse Terms.</div>
+        </div>
+    </div>
+
+    <!-- ==================== Features Tab ==================== -->
+    <div id="tab-features" class="hidden">
+        <div class="card">
+            <h2>Feature Extraction</h2>
+            <p class="description">Extract computed features from JSON documents.</p>
+            <textarea id="feat-input" style="min-height:150px" placeholder='{"id": 1, "title": "Test", "body": "Content here"}'></textarea>
+            <div class="btn-group">
+                <button class="btn-primary" onclick="extractFeatures()">Extract Features</button>
+                <button class="btn-green" onclick="extractBatch()">Extract Batch</button>
+                <button class="btn-amber" onclick="indexFeatures()">Build Feature Index</button>
+                <button class="btn-secondary" onclick="clearFeatures()">Clear</button>
+            </div>
+            <div id="feat-result" class="result" style="min-height:200px"></div>
+        </div>
+        <div class="card" style="margin-top:1rem">
+            <h2>Available Features</h2>
+            <div id="feat-definitions"></div>
+        </div>
+    </div>
 
     <!-- ==================== Unit Time Tab ==================== -->
     <div id="tab-unittime" class="hidden">
@@ -1043,7 +998,7 @@ document.querySelectorAll('.tab').forEach(tab => {
         if (name === 'types' && !document.getElementById('type-list').innerHTML) loadTypes();
         if (name === 'translate') checkTranslateStatus();
         if (name === 'search') { checkSearchStatus(); loadIndexedFields(); rtLoadStatus(); }
-        if (name === 'viewer') { /* fields loaded on demand */ }
+        if (name === 'viewer') { viewerRefreshIndexList(); }
         if (name === 'features') loadFeatureStatus();
         if (name === 'unittime') loadUnitTimeStatus();
     });
@@ -1906,11 +1861,52 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ─── Lucene Viewer ────────────────────────────────────────────────
 
+function viewerApiPath(endpoint) {
+    var sel = document.getElementById('viewer-index-select');
+    var idx = sel ? sel.value : '';
+    if (idx) {
+        // Retrieval index — use /api/retrieval/viewer/{indexName}/...
+        return '/retrieval/viewer/' + encodeURIComponent(idx) + '/' + endpoint;
+    }
+    // Simple search index — use /api/jvs/viewer/...
+    return '/viewer/' + endpoint;
+}
+
+async function viewerFetch(endpoint) {
+    var path = viewerApiPath(endpoint);
+    if (path.startsWith('/retrieval/')) {
+        // Direct fetch (not through api() helper which prepends /api/jvs)
+        var res = await fetch('/api' + path);
+        return await res.json();
+    }
+    return await api('GET', path);
+}
+
+async function viewerRefreshIndexList() {
+    var sel = document.getElementById('viewer-index-select');
+    var current = sel.value;
+    sel.innerHTML = '<option value="">Simple Search (documents)</option>';
+    try {
+        var indexes = await fetch('/api/retrieval/indexes').then(function(r) { return r.json(); });
+        indexes.forEach(function(idx) {
+            var opt = document.createElement('option');
+            opt.value = idx.name;
+            opt.textContent = idx.name + ' (' + idx.documentCount + ' docs)';
+            sel.appendChild(opt);
+        });
+        if (current) sel.value = current;
+    } catch(e) {}
+}
+
+function viewerIndexChanged() {
+    document.getElementById('viewer-result').innerHTML = 'Select an action above to inspect this index.';
+}
+
 async function viewerStats() {
     const el = document.getElementById('viewer-result');
     el.innerHTML = '<span class="loading"></span> Loading stats...';
     try {
-        const stats = await api('GET', '/viewer/stats');
+        const stats = await viewerFetch('stats');
         if (stats.error) { el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(stats.error) + '</div>'; return; }
         el.innerHTML = '<div class="json-tree">' + buildJsonTree(stats) + '</div>';
     } catch(e) { el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(e.message) + '</div>'; }
@@ -1920,7 +1916,7 @@ async function viewerFields() {
     const el = document.getElementById('viewer-result');
     el.innerHTML = '<span class="loading"></span> Loading fields...';
     try {
-        const fields = await api('GET', '/viewer/fields');
+        const fields = await viewerFetch('fields');
         if (fields.error) { el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(fields.error) + '</div>'; return; }
         let html = '<table style="width:100%;border-collapse:collapse;font-size:0.8rem">';
         html += '<tr style="background:#f1f5f9;font-weight:600"><td style="padding:0.35rem 0.5rem">Field Name</td><td style="padding:0.35rem 0.5rem">Index Options</td><td style="padding:0.35rem 0.5rem">DocValues</td></tr>';
@@ -1940,7 +1936,7 @@ async function viewerDocs() {
     const el = document.getElementById('viewer-result');
     el.innerHTML = '<span class="loading"></span> Loading documents...';
     try {
-        const docs = await api('GET', '/viewer/documents?start=0&limit=10');
+        const docs = await viewerFetch('documents?start=0&limit=10');
         if (docs.error) { el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(docs.error) + '</div>'; return; }
         let html = '';
         docs.forEach(doc => {
@@ -1948,11 +1944,12 @@ async function viewerDocs() {
             html += '<div style="padding:0.5rem 0.75rem;background:#f8fafc;cursor:pointer;display:flex;align-items:center;gap:0.5rem" onclick="this.nextElementSibling.classList.toggle(\'hidden\')">';
             html += '<span style="color:#94a3b8">&#9654;</span> ';
             html += '<span class="badge badge-blue">doc #' + doc.docId + '</span> ';
-            const uid = doc.fields && doc.fields['_uid'] ? doc.fields['_uid'][0] : '';
+            const sf = doc.storedFields || doc.fields || {};
+            const uid = sf['_uid'] ? sf['_uid'][0] : '';
             if (uid) html += '<span class="badge badge-gray">' + escapeHtml(uid) + '</span>';
             html += '</div>';
             html += '<div class="hidden" style="padding:0.5rem 0.75rem;max-height:400px;overflow:auto">';
-            html += '<div class="json-tree">' + buildJsonTree(doc.fields) + '</div>';
+            html += '<div class="json-tree">' + buildJsonTree(doc.storedFields || doc.fields || {}) + '</div>';
             html += '</div></div>';
         });
         el.innerHTML = html || '<div style="color:#94a3b8">No documents found.</div>';
@@ -1966,7 +1963,7 @@ async function viewerTerms() {
     const el = document.getElementById('viewer-terms-result');
     el.innerHTML = '<span class="loading"></span> Loading terms...';
     try {
-        const page = await api('GET', '/viewer/terms/' + encodeURIComponent(field) + '?limit=' + limit);
+        const page = await viewerFetch('terms/' + encodeURIComponent(field) + '?limit=' + limit);
         if (page.error) { el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(page.error) + '</div>'; return; }
         let html = '<div style="margin-bottom:0.5rem;font-size:0.8rem"><strong>' + escapeHtml(field) + '</strong>';
         if (page.terms) html += ' (' + page.terms.length + ' terms shown)';
@@ -1974,7 +1971,7 @@ async function viewerTerms() {
         if (page.terms && page.terms.length > 0) {
             html += '<div style="display:flex;flex-wrap:wrap;gap:0.35rem">';
             page.terms.forEach(t => {
-                html += '<span class="badge badge-blue" title="docFreq=' + t.docFreq + ' totalFreq=' + t.totalTermFreq + '">' + escapeHtml(t.text) + ' <span style="opacity:0.6">(' + t.docFreq + ')</span></span>';
+                html += '<span class="badge badge-blue" title="docFreq=' + t.docFreq + ' totalFreq=' + t.totalTermFreq + '">' + escapeHtml(t.term || t.text) + ' <span style="opacity:0.6">(' + t.docFreq + ')</span></span>';
             });
             html += '</div>';
         } else {
@@ -2350,6 +2347,8 @@ function rtRefreshIndexList(details) {
     });
     listEl.innerHTML = listHtml;
     queryEl.innerHTML = checkHtml;
+    // Load field suggestions for query builder
+    setTimeout(rtLoadFieldSuggestions, 100);
 }
 
 async function rtCreateIndex() {
@@ -2459,6 +2458,281 @@ function rtUpdateTransportUi() {
         status.className = 'badge badge-green';
     }
 }
+
+// ─── Query Builder Helpers ─────────────────────────────────────
+
+function rtInsertOperator(op) {
+    var input = document.getElementById('rt-search-query');
+    var pos = input.selectionStart || input.value.length;
+    input.value = input.value.substring(0, pos) + op + input.value.substring(pos);
+    input.focus();
+    input.selectionStart = input.selectionEnd = pos + op.length;
+}
+
+function rtInsertField(fieldPath, isMls) {
+    var input = document.getElementById('rt-search-query');
+    var current = input.value.trim();
+    var fieldQuery = isMls ? fieldPath + '.mls:' : fieldPath + ':';
+    if (current === '*:*' || current === '') {
+        input.value = fieldQuery;
+    } else {
+        input.value = current + ' AND ' + fieldQuery;
+    }
+    input.focus();
+    // Place cursor right after the colon
+    input.selectionStart = input.selectionEnd = input.value.length;
+}
+
+function rtAddFacetConstraint(dimension, value) {
+    var input = document.getElementById('rt-search-query');
+    var current = input.value.trim();
+    var constraint = dimension + ':"' + value + '"';
+    if (current === '*:*' || current === '') {
+        input.value = constraint;
+    } else {
+        input.value = current + ' AND ' + constraint;
+    }
+    // Auto-execute the search with the new constraint
+    rtExecutePipeline();
+}
+
+var rtFieldsCache = null;
+
+async function rtLoadFieldSuggestions() {
+    var checkboxes = document.querySelectorAll('.rt-idx-cb:checked');
+    if (checkboxes.length === 0) {
+        document.getElementById('rt-field-suggestions').innerHTML = '<span style="color:#94a3b8;font-size:0.75rem">Select an index to see searchable fields</span>';
+        return;
+    }
+    var indexName = checkboxes[0].value;
+    try {
+        var fields = await fetch('/api/retrieval/fields/' + encodeURIComponent(indexName)).then(function(r) { return r.json(); });
+        rtFieldsCache = fields;
+        if (!fields || fields.length === 0) {
+            document.getElementById('rt-field-suggestions').innerHTML = '<span style="color:#94a3b8;font-size:0.75rem">No searchable fields found</span>';
+            return;
+        }
+        var html = '';
+        fields.forEach(function(f, idx) {
+            if (!f.indexed && !f.mls) return;
+            var color = f.mls ? '#7c3aed' : f.method === 'identifier' ? '#059669' : '#1d4ed8';
+            var label = f.path;
+            var badge = f.mls ? 'MLS' : f.method || 'field';
+
+            if (f.mls && f.subFields && f.subFields.length > 0) {
+                // MLS field with expandable sub-fields dropdown
+                html += '<span style="position:relative;display:inline-block">'
+                    + '<span style="display:inline-flex;align-items:center;gap:0.2rem;padding:0.15rem 0.5rem;'
+                    + 'background:white;border:1px solid #c4b5fd;border-radius:0.25rem;font-size:0.75rem;'
+                    + 'cursor:pointer;color:' + color + '" onclick="rtToggleFieldDropdown(this,event)">'
+                    + '<strong>' + escapeHtml(label) + '</strong>'
+                    + '<span style="font-size:0.65rem;color:#94a3b8;margin-left:0.15rem">' + badge + ' &#9662;</span>'
+                    + '</span>'
+                    + '<div class="rt-field-dropdown" onclick="event.stopPropagation()" style="display:none;position:absolute;top:100%;left:0;z-index:100;'
+                    + 'background:white;border:1px solid #d1d5db;border-radius:0.375rem;box-shadow:0 4px 12px rgba(0,0,0,0.15);'
+                    + 'min-width:260px;max-height:250px;overflow-y:auto;padding:0.25rem 0">';
+                // Default: mls shorthand (resolves to clean)
+                html += '<div style="padding:0.35rem 0.75rem;cursor:pointer;font-size:0.8rem;border-bottom:1px solid #e2e8f0;background:#f5f3ff" '
+                    + 'onmouseover="this.style.background=\'#ede9fe\'" onmouseout="this.style.background=\'#f5f3ff\'" '
+                    + 'onclick="event.stopPropagation();rtInsertFieldPath(\'' + escapeHtml(f.path) + '.mls\');rtCloseDropdowns()">'
+                    + '<strong style="color:#7c3aed">' + escapeHtml(f.path) + '.mls</strong>'
+                    + ' <span style="color:#94a3b8;font-size:0.7rem">→ clean (default search)</span></div>';
+                f.subFields.forEach(function(sf) {
+                    if (!sf.indexed) return;
+                    var sfColor = sf.dynamic ? '#d97706' : '#1d4ed8';
+                    html += '<div style="padding:0.3rem 0.75rem;cursor:pointer;font-size:0.78rem" '
+                        + 'onmouseover="this.style.background=\'#f1f5f9\'" onmouseout="this.style.background=\'white\'" '
+                        + 'onclick="event.stopPropagation();rtInsertFieldPath(\'' + escapeHtml(sf.path) + '\');rtCloseDropdowns()">'
+                        + '<span style="color:' + sfColor + '">' + escapeHtml(sf.path) + '</span>'
+                        + ' <span style="color:#94a3b8;font-size:0.65rem">' + (sf.method || '') + (sf.dynamic ? ' (dynamic)' : '') + '</span></div>';
+                });
+                html += '</div></span>';
+            } else {
+                // Non-MLS indexed field — direct insert
+                html += '<span style="display:inline-flex;align-items:center;gap:0.2rem;padding:0.15rem 0.5rem;'
+                    + 'background:white;border:1px solid #d1d5db;border-radius:0.25rem;font-size:0.75rem;'
+                    + 'cursor:pointer;color:' + color + '" '
+                    + 'onclick="rtInsertFieldPath(\'' + escapeHtml(f.path) + '\')" '
+                    + 'title="' + escapeHtml(f.hint || '') + '">'
+                    + '<strong>' + escapeHtml(label) + '</strong>'
+                    + '<span style="font-size:0.65rem;color:#94a3b8;margin-left:0.15rem">' + badge + '</span>'
+                    + '</span>';
+            }
+        });
+        document.getElementById('rt-field-suggestions').innerHTML = html;
+    } catch (e) {
+        document.getElementById('rt-field-suggestions').innerHTML = '<span style="color:#94a3b8;font-size:0.75rem">Could not load fields</span>';
+    }
+}
+
+function rtToggleFieldDropdown(el, event) {
+    event.stopPropagation();
+    rtCloseDropdowns();
+    var dd = el.parentElement.querySelector('.rt-field-dropdown');
+    if (dd) dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+}
+
+function rtCloseDropdowns() {
+    document.querySelectorAll('.rt-field-dropdown').forEach(function(dd) { dd.style.display = 'none'; });
+}
+
+function rtInsertFieldPath(fieldPath) {
+    var input = document.getElementById('rt-search-query');
+    var current = input.value.trim();
+    var fieldQuery = fieldPath + ':';
+    if (current === '*:*' || current === '') {
+        input.value = fieldQuery;
+    } else {
+        input.value = current + ' AND ' + fieldQuery;
+    }
+    input.focus();
+    input.selectionStart = input.selectionEnd = input.value.length;
+}
+
+// Close dropdowns on click outside
+document.addEventListener('click', function() { rtCloseDropdowns(); });
+
+// ─── Document View Mode ────────────────────────────────────────
+var rtViewMode = 'pretty';
+var rtLastDocs = [];
+
+function rtSetViewMode(mode) {
+    rtViewMode = mode;
+    document.getElementById('rt-view-pretty').style.background = mode === 'pretty' ? '#3b82f6' : '#e2e8f0';
+    document.getElementById('rt-view-pretty').style.color = mode === 'pretty' ? 'white' : '#475569';
+    document.getElementById('rt-view-json').style.background = mode === 'json' ? '#3b82f6' : '#e2e8f0';
+    document.getElementById('rt-view-json').style.color = mode === 'json' ? 'white' : '#475569';
+    rtRenderDocs(rtLastDocs, mode);
+}
+
+function rtRenderDocs(docs, mode) {
+    if (!docs || docs.length === 0) {
+        document.getElementById('rt-result-docs').innerHTML = '<span style="color:#94a3b8">No documents returned</span>';
+        return;
+    }
+    if (mode === 'json') {
+        rtRenderDocsJson(docs);
+    } else {
+        rtRenderDocsPretty(docs);
+    }
+}
+
+function rtRenderDocsJson(docs) {
+    var html = '';
+    docs.forEach(function(doc, i) {
+        var title = rtExtractTitle(doc);
+        var id = rtExtractId(doc);
+        html += '<details style="margin-bottom:0.5rem"><summary style="cursor:pointer;font-size:0.85rem">'
+            + '<span class="badge badge-gray">#' + (i+1) + '</span> '
+            + (id ? '<span class="badge badge-blue">' + escapeHtml(id) + '</span> ' : '')
+            + escapeHtml(title.substring(0, 120))
+            + '</summary><pre style="font-size:0.72rem;background:#f1f5f9;padding:0.5rem;border-radius:0.25rem;overflow:auto;max-height:400px">'
+            + escapeHtml(JSON.stringify(doc, null, 2)) + '</pre></details>';
+    });
+    document.getElementById('rt-result-docs').innerHTML = html;
+}
+
+function rtRenderDocsPretty(docs) {
+    var html = '';
+    docs.forEach(function(doc, i) {
+        var title = rtExtractTitle(doc);
+        var id = rtExtractId(doc);
+        var type = doc.type || '';
+        var score = doc._score !== undefined ? parseFloat(doc._score).toFixed(3) : '';
+
+        html += '<div style="border:1px solid #e2e8f0;border-radius:0.5rem;padding:0.75rem;margin-bottom:0.75rem;background:white">';
+
+        // Header row: badges
+        html += '<div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.5rem">';
+        html += '<span class="badge badge-gray">#' + (i+1) + '</span>';
+        if (id) html += '<span class="badge badge-blue">' + escapeHtml(id) + '</span>';
+        if (type) html += '<span class="badge badge-purple">' + escapeHtml(type) + '</span>';
+        if (score) html += '<span class="badge badge-amber">score: ' + score + '</span>';
+        if (doc._index) html += '<span class="badge badge-gray">' + escapeHtml(doc._index) + '</span>';
+        html += '</div>';
+
+        // Title
+        html += '<div style="font-size:1rem;font-weight:600;color:#1e293b;margin-bottom:0.5rem">' + escapeHtml(title) + '</div>';
+
+        // Body/content snippet
+        var body = rtExtractMlsText(doc, 'body') || rtExtractMlsText(doc, 'content') || rtExtractMlsText(doc, 'description') || '';
+        if (body) {
+            var snippet = body.length > 300 ? body.substring(0, 300) + '...' : body;
+            html += '<div style="font-size:0.85rem;color:#475569;line-height:1.5;margin-bottom:0.5rem">' + escapeHtml(snippet) + '</div>';
+        }
+
+        // NER highlights (if enriched)
+        var ner = rtExtractMlsField(doc, 'title', 'segmented_ner') || rtExtractMlsField(doc, 'body', 'segmented_ner');
+        if (ner) {
+            var nerText = Array.isArray(ner) ? ner[0] : String(ner);
+            html += '<div style="font-size:0.78rem;color:#64748b;background:#fef3c7;padding:0.35rem 0.5rem;border-radius:0.25rem;margin-bottom:0.5rem;line-height:1.4">'
+                + '<strong style="font-size:0.7rem;color:#92400e">NER:</strong> '
+                + nerText.replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                    .replace(/&lt;(person|organization|location|date|money)&gt;/g, '<span style="color:#7c3aed;font-weight:600">')
+                    .replace(/&lt;\/(person|organization|location|date|money)&gt;/g, '</span>')
+                + '</div>';
+        }
+
+        // Metadata fields in a compact grid
+        var metaFields = [];
+        var skipKeys = new Set(['type','id','title','body','content','description','_score','_uid','_index','_type','_rrf_score']);
+        for (var key in doc) {
+            if (skipKeys.has(key)) continue;
+            var val = doc[key];
+            if (val === null || val === undefined) continue;
+            if (typeof val === 'object' && val.mls) continue; // MLS shown above
+            var display = typeof val === 'object' ? JSON.stringify(val) : String(val);
+            if (display.length > 80) display = display.substring(0, 80) + '...';
+            metaFields.push({key: key, value: display});
+        }
+        if (metaFields.length > 0) {
+            html += '<div style="display:flex;gap:0.5rem;flex-wrap:wrap">';
+            metaFields.forEach(function(m) {
+                html += '<span style="font-size:0.72rem;background:#f1f5f9;padding:0.15rem 0.4rem;border-radius:0.2rem">'
+                    + '<span style="color:#64748b">' + escapeHtml(m.key) + ':</span> '
+                    + '<span style="color:#1e293b">' + escapeHtml(m.value) + '</span></span>';
+            });
+            html += '</div>';
+        }
+
+        html += '</div>';
+    });
+    document.getElementById('rt-result-docs').innerHTML = html;
+}
+
+function rtExtractTitle(doc) {
+    if (doc.title && doc.title.mls && doc.title.mls[0]) return doc.title.mls[0].text || '(no title)';
+    if (doc.title && typeof doc.title === 'string') return doc.title;
+    if (doc.name) return typeof doc.name === 'string' ? doc.name : JSON.stringify(doc.name);
+    return '(no title)';
+}
+
+function rtExtractId(doc) {
+    if (!doc.id) return '';
+    if (doc.id.domain && doc.id.did) return doc.id.domain + '/' + doc.id.did;
+    if (doc.id.id) return doc.id.id;
+    if (typeof doc.id === 'string') return doc.id;
+    return '';
+}
+
+function rtExtractMlsText(doc, field) {
+    var f = doc[field];
+    if (!f || !f.mls || !f.mls[0]) return null;
+    return f.mls[0].clean || f.mls[0].text || null;
+}
+
+function rtExtractMlsField(doc, field, subField) {
+    var f = doc[field];
+    if (!f || !f.mls || !f.mls[0]) return null;
+    return f.mls[0][subField] || null;
+}
+
+// Load field suggestions when index selection changes
+document.addEventListener('change', function(e) {
+    if (e.target && e.target.classList.contains('rt-idx-cb')) {
+        rtLoadFieldSuggestions();
+    }
+});
 
 async function rtExecutePipeline() {
     var selectedIndexes = [];
@@ -2592,8 +2866,10 @@ async function rtExecutePipeline() {
                     facetsHtml += '<div style="font-size:0.7rem;color:#94a3b8;margin-bottom:0.25rem">' + (f.totalCount || 0) + ' total</div>';
                     if (f.values && f.values.length > 0) {
                         f.values.forEach(function(v) {
-                            facetsHtml += '<div style="display:flex;justify-content:space-between;font-size:0.8rem;padding:0.15rem 0;border-bottom:1px solid #f1f5f9">'
-                                + '<span>' + escapeHtml(String(v.value)) + '</span>'
+                            facetsHtml += '<div style="display:flex;justify-content:space-between;font-size:0.8rem;padding:0.15rem 0;border-bottom:1px solid #f1f5f9;cursor:pointer" '
+                                + 'onclick="rtAddFacetConstraint(\'' + escapeHtml(dim) + '\',\'' + escapeHtml(String(v.value)).replace(/'/g,"\\'") + '\')" '
+                                + 'title="Click to add as query constraint">'
+                                + '<span style="color:#1d4ed8">' + escapeHtml(String(v.value)) + '</span>'
                                 + '<span class="badge badge-blue" style="margin-left:0.5rem">' + v.count + '</span></div>';
                         });
                     }
@@ -2657,30 +2933,9 @@ async function rtExecutePipeline() {
             document.getElementById('rt-result-summary').innerHTML = '<span style="color:#dc2626;font-size:0.8rem">Summary/context render error: ' + escapeHtml(sumErr.message) + '</span>';
         }
 
-        // Documents
-        if (res.documents && res.documents.length > 0) {
-            var docsHtml = '';
-            res.documents.forEach(function(doc, i) {
-                var title = '(no title)';
-                if (doc.title && doc.title.mls && doc.title.mls[0]) title = doc.title.mls[0].text || title;
-                else if (doc.title) title = typeof doc.title === 'string' ? doc.title : JSON.stringify(doc.title);
-                var id = '';
-                if (doc.id) id = (doc.id.domain || '') + '/' + (doc.id.did || doc.id.id || '');
-
-                docsHtml += '<details style="margin-bottom:0.5rem">'
-                    + '<summary style="cursor:pointer;font-size:0.85rem">'
-                    + '<span class="badge badge-gray">#' + (i + 1) + '</span> '
-                    + (id ? '<span class="badge badge-blue">' + escapeHtml(id) + '</span> ' : '')
-                    + escapeHtml(title.substring(0, 120))
-                    + '</summary>'
-                    + '<pre style="font-size:0.75rem;background:#f1f5f9;padding:0.5rem;border-radius:0.25rem;overflow:auto;max-height:400px">'
-                    + escapeHtml(JSON.stringify(doc, null, 2))
-                    + '</pre></details>';
-            });
-            document.getElementById('rt-result-docs').innerHTML = docsHtml;
-        } else {
-            document.getElementById('rt-result-docs').innerHTML = '<span style="color:#94a3b8">No documents returned</span>';
-        }
+        // Documents — pretty render with JSON toggle
+        rtLastDocs = res.documents;
+        rtRenderDocs(res.documents, rtViewMode);
 
         // Show "not retrieved" for empty sections
         if (!res.facets || Object.keys(res.facets).length === 0) {

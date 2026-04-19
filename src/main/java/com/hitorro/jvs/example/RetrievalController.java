@@ -100,6 +100,120 @@ public class RetrievalController {
         return ResponseEntity.ok(status);
     }
 
+    // ─── Searchable Fields (for query builder) ─────────────────────
+
+    @GetMapping("/fields/{indexName}")
+    public ResponseEntity<List<Map<String, Object>>> getSearchableFields(@PathVariable String indexName) {
+        List<Map<String, Object>> fields = new ArrayList<>();
+        IndexMeta meta = indexMetas.get(indexName);
+        if (meta == null || meta.typeName == null || !jvsService.isTypeSystemAvailable()) {
+            return ResponseEntity.ok(fields);
+        }
+
+        Type type = JsonTypeSystem.getMe().getType(meta.typeName);
+        if (type == null) return ResponseEntity.ok(fields);
+
+        // Collect fields from type and super types
+        addFieldsFromType(fields, type, "");
+
+        return ResponseEntity.ok(fields);
+    }
+
+    private void addFieldsFromType(List<Map<String, Object>> fields, Type type, String prefix) {
+        if (type == null) return;
+
+        // Add inherited fields from super type first
+        Type superType = type.getSuper();
+        if (superType != null) {
+            addFieldsFromType(fields, superType, prefix);
+        }
+
+        // Add own fields
+        var metaNode = type.getMetaNode();
+        if (metaNode != null && metaNode.has("fields") && metaNode.get("fields").isArray()) {
+            for (var fn : metaNode.get("fields")) {
+                String name = fn.has("name") ? fn.get("name").asText() : null;
+                if (name == null) continue;
+                String fullPath = prefix.isEmpty() ? name : prefix + "." + name;
+                String fieldType = fn.has("type") ? fn.get("type").asText() : "core_string";
+                boolean isMls = "core_mls".equals(fieldType);
+                boolean isVector = fn.has("vector") && fn.get("vector").asBoolean();
+
+                // Check if field has index groups
+                boolean indexed = false;
+                String method = null;
+                if (fn.has("groups") && fn.get("groups").isArray()) {
+                    for (var g : fn.get("groups")) {
+                        if ("index".equals(g.has("name") ? g.get("name").asText() : "")) {
+                            indexed = true;
+                            method = g.has("method") ? g.get("method").asText() : null;
+                            break;
+                        }
+                    }
+                }
+
+                Map<String, Object> info = new LinkedHashMap<>();
+                info.put("path", fullPath);
+                info.put("type", fieldType);
+                info.put("indexed", indexed);
+                info.put("method", method);
+                info.put("vector", isVector);
+                info.put("mls", isMls);
+
+                // Generate query syntax hint and sub-fields for MLS types
+                if (isMls) {
+                    info.put("querySyntax", fullPath + ".mls:search_term");
+                    info.put("hint", "MLS field — searches clean (normalized) text. Language-aware.");
+                    // Add searchable MLS sub-fields
+                    List<Map<String, Object>> subFields = new ArrayList<>();
+                    Type mlsElemType = JsonTypeSystem.getMe().getType("core_mlselem");
+                    if (mlsElemType != null && mlsElemType.getMetaNode() != null
+                            && mlsElemType.getMetaNode().has("fields")) {
+                        for (var sf : mlsElemType.getMetaNode().get("fields")) {
+                            String sfName = sf.has("name") ? sf.get("name").asText() : null;
+                            if (sfName == null || "lang".equals(sfName)) continue;
+                            boolean sfIndexed = false;
+                            String sfMethod = null;
+                            if (sf.has("groups") && sf.get("groups").isArray()) {
+                                for (var sg : sf.get("groups")) {
+                                    if ("index".equals(sg.has("name") ? sg.get("name").asText() : "")) {
+                                        sfIndexed = true;
+                                        sfMethod = sg.has("method") ? sg.get("method").asText() : null;
+                                        break;
+                                    }
+                                }
+                            }
+                            boolean isDynamic = sf.has("dynamic");
+                            Map<String, Object> sub = new LinkedHashMap<>();
+                            sub.put("name", sfName);
+                            sub.put("path", fullPath + ".mls." + sfName);
+                            sub.put("indexed", sfIndexed);
+                            sub.put("method", sfMethod);
+                            sub.put("dynamic", isDynamic);
+                            sub.put("querySyntax", sfIndexed ? fullPath + ".mls." + sfName + ":term" : null);
+                            subFields.add(sub);
+                        }
+                    }
+                    info.put("subFields", subFields);
+                } else if (indexed && "identifier".equals(method)) {
+                    info.put("querySyntax", fullPath + ":\"exact value\"");
+                    info.put("hint", "Exact match (keyword). Use quotes for multi-word values.");
+                } else if (indexed && "text".equals(method)) {
+                    info.put("querySyntax", fullPath + ":search_term");
+                    info.put("hint", "Full-text search. Supports AND, OR, phrases, wildcards.");
+                } else if (indexed) {
+                    info.put("querySyntax", fullPath + ":value");
+                    info.put("hint", "Indexed field.");
+                } else {
+                    info.put("querySyntax", null);
+                    info.put("hint", "Not indexed — stored only.");
+                }
+
+                fields.add(info);
+            }
+        }
+    }
+
     // ─── Index Management ────────────────────────────────────────────
 
     @PostMapping("/indexes")
@@ -669,6 +783,84 @@ public class RetrievalController {
         return org.springframework.http.ResponseEntity.ok()
                 .contentType(org.springframework.http.MediaType.parseMediaType("application/x-ndjson"))
                 .body(streamBody);
+    }
+
+    // ─── Index Viewer (for retrieval indexes) ──────────────────────
+
+    private org.apache.lucene.index.DirectoryReader getReaderForIndex(String indexName) throws Exception {
+        var handle = indexManager.getIndex(indexName);
+        if (handle == null) throw new IllegalStateException("Index not found: " + indexName);
+        return org.apache.lucene.index.DirectoryReader.open(handle.getWriter().getIndexWriter());
+    }
+
+    @GetMapping("/viewer/{indexName}/stats")
+    public ResponseEntity<?> viewerStats(@PathVariable String indexName) {
+        try {
+            var reader = getReaderForIndex(indexName);
+            var stats = com.hitorro.luceneviewer.LuceneViewer.stats(reader);
+            reader.close();
+            return ResponseEntity.ok(stats);
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/viewer/{indexName}/fields")
+    public ResponseEntity<?> viewerFields(@PathVariable String indexName) {
+        try {
+            var reader = getReaderForIndex(indexName);
+            var fields = com.hitorro.luceneviewer.LuceneViewer.listFields(reader);
+            reader.close();
+            return ResponseEntity.ok(fields);
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/viewer/{indexName}/documents")
+    public ResponseEntity<?> viewerDocuments(@PathVariable String indexName,
+                                             @RequestParam(defaultValue = "0") int start,
+                                             @RequestParam(defaultValue = "10") int limit) {
+        try {
+            var reader = getReaderForIndex(indexName);
+            var docs = com.hitorro.luceneviewer.LuceneViewer.listDocuments(reader, start, limit, true, false);
+            reader.close();
+            return ResponseEntity.ok(docs);
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/viewer/{indexName}/terms/{field}")
+    public ResponseEntity<?> viewerTerms(@PathVariable String indexName,
+                                          @PathVariable String field,
+                                          @RequestParam(required = false) String after,
+                                          @RequestParam(defaultValue = "50") int limit) {
+        try {
+            var reader = getReaderForIndex(indexName);
+            var terms = com.hitorro.luceneviewer.LuceneViewer.listTerms(reader, field, after, limit);
+            reader.close();
+            return ResponseEntity.ok(terms);
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/viewer/{indexName}/search")
+    public ResponseEntity<?> viewerSearch(@PathVariable String indexName,
+                                           @RequestParam String q,
+                                           @RequestParam(defaultValue = "content") String field,
+                                           @RequestParam(defaultValue = "10") int limit,
+                                           @RequestParam(required = false) String pageToken) {
+        try {
+            var reader = getReaderForIndex(indexName);
+            var searcher = new org.apache.lucene.search.IndexSearcher(reader);
+            var result = com.hitorro.luceneviewer.LuceneViewer.search(searcher, q, field, limit, pageToken, true);
+            reader.close();
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of("error", e.getMessage()));
+        }
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────
