@@ -115,6 +115,13 @@
             <version>3.0.0</version>
         </dependency>
 
+        <!-- HiTorro Git Tools - repository management, PR benchmarking -->
+        <dependency>
+            <groupId>com.hitorro</groupId>
+            <artifactId>hitorro-gittools</artifactId>
+            <version>3.0.0</version>
+        </dependency>
+
         <!-- Spring Boot Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

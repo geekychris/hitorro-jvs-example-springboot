@@ -863,6 +863,57 @@ public class RetrievalController {
         }
     }
 
+    // ─── Term Postings Viewer ────────────────────────────────────────
+
+    @GetMapping("/viewer/{indexName}/postings/{field}")
+    public ResponseEntity<?> viewerPostings(@PathVariable String indexName,
+                                             @PathVariable String field,
+                                             @RequestParam String term,
+                                             @RequestParam(defaultValue = "10") int limit) {
+        try {
+            var reader = getReaderForIndex(indexName);
+            var postings = com.hitorro.luceneviewer.LuceneViewer.listTermPostings(reader, field, term, limit);
+            reader.close();
+            return ResponseEntity.ok(postings);
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ─── Analyzer Chain Builder ──────────────────────────────────────
+
+    @GetMapping("/analyzer/tokenizers")
+    public ResponseEntity<List<String>> listTokenizers() {
+        return ResponseEntity.ok(com.hitorro.index.analysis.AnalyzerChainBuilder.availableTokenizers());
+    }
+
+    @GetMapping("/analyzer/filters")
+    public ResponseEntity<Map<String, List<String>>> listTokenFilters() {
+        return ResponseEntity.ok(com.hitorro.index.analysis.AnalyzerChainBuilder.availableTokenFiltersGrouped());
+    }
+
+    @PostMapping("/analyzer/analyze")
+    public ResponseEntity<Map<String, Object>> analyzeText(@RequestBody Map<String, Object> body) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        try {
+            String tokenizer = (String) body.getOrDefault("tokenizer", "standard");
+            @SuppressWarnings("unchecked")
+            List<String> filters = (List<String>) body.getOrDefault("filters", List.of());
+            String text = (String) body.getOrDefault("text", "");
+
+            var tokens = com.hitorro.index.analysis.AnalyzerChainBuilder.analyze(tokenizer, filters, text);
+            result.put("tokens", tokens);
+            result.put("tokenCount", tokens.size());
+            result.put("tokenizerUsed", tokenizer);
+            result.put("filtersUsed", filters);
+        } catch (Exception e) {
+            result.put("error", e.getMessage());
+            result.put("tokens", List.of());
+            result.put("tokenCount", 0);
+        }
+        return ResponseEntity.ok(result);
+    }
+
     // ─── Helpers ─────────────────────────────────────────────────────
 
     // ─── Wire Transport ────────────────────────────────────────────
