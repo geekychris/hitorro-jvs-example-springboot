@@ -1,18 +1,17 @@
----
-apiVersion: "v1"
-kind: "Service"
+apiVersion: v1
+kind: Service
 metadata:
-  name: "hitorro-jvs-example-springboot"
   labels:
-    app.kubernetes.io/managed-by: "devportal"
-    app: "hitorro-jvs-example-springboot"
+    app: hitorro-jvs-example-springboot
+    app.kubernetes.io/managed-by: devportal
+  name: hitorro-jvs-example-springboot
 spec:
-  type: "NodePort"
+  type: NodePort
   selector:
-    app: "hitorro-jvs-example-springboot"
+    app: hitorro-jvs-example-springboot
   ports:
-  - name: "http"
+  - name: http
     port: 8080
-    targetPort: "http"
-    protocol: "TCP"
+    targetPort: http
+    protocol: TCP
     nodePort: 30000

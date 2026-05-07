@@ -1,32 +1,31 @@
----
-apiVersion: "apps/v1"
-kind: "Deployment"
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: "hitorro-jvs-example-springboot"
   labels:
-    app.kubernetes.io/managed-by: "devportal"
-    app: "hitorro-jvs-example-springboot"
+    app: hitorro-jvs-example-springboot
+    app.kubernetes.io/managed-by: devportal
+  name: hitorro-jvs-example-springboot
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: "hitorro-jvs-example-springboot"
+      app: hitorro-jvs-example-springboot
   template:
     metadata:
       labels:
-        app: "hitorro-jvs-example-springboot"
+        app: hitorro-jvs-example-springboot
     spec:
       containers:
-      - name: "hitorro-jvs-example-springboot"
-        image: "devportal/hitorro-jvs-example-springboot:latest"
-        imagePullPolicy: "IfNotPresent"
+      - name: hitorro-jvs-example-springboot
+        image: devportal/hitorro-jvs-example-springboot:latest
+        imagePullPolicy: IfNotPresent
         ports:
-        - name: "http"
+        - name: http
           containerPort: 8080
-          protocol: "TCP"
+          protocol: TCP
         readinessProbe:
           periodSeconds: 10
-          httpGet:
-            port: "http"
-            path: "/"
           initialDelaySeconds: 10
+          httpGet:
+            path: /
+            port: http
