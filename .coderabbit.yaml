@@ -1,0 +1,69 @@
+language: en-US
+
+tone_instructions: >
+  Be concise and pragmatic. This is a Spring Boot module — flag DI, transaction, and configuration issues aggressively.
+
+early_access: false
+
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  high_level_summary_placeholder: "`@coderabbitai` summary"
+  high_level_summary_in_walkthrough: true
+  auto_title_placeholder: "`@coderabbitai` title"
+  sequence_diagrams: true
+  collapse_walkthrough: false
+  changed_files_summary: true
+  poem: false
+  suggested_labels: true
+  suggested_reviewers: false
+  related_issues: true
+  related_prs: true
+  auto_review:
+    enabled: true
+    drafts: false
+  path_filters:
+    - "!**/*.md"
+    - "!**/target/**"
+  path_instructions:
+    - path: "**/*"
+      instructions: >
+        Flag correctness, concurrency, resource-leak,
+        security, and performance issues aggressively. When a change appears to
+        alter an existing architectural pattern or introduce new shared/stateful
+        infrastructure, call that out explicitly as an "architecture" concern
+        rather than a routine style comment.
+        In addition to routine correctness review, explicitly call out:
+        (1) Security-relevant concerns — injection risks (e.g. building
+        glob/regex/SQL/shell patterns from variable input), credential or
+        secret handling, unsafe deserialization, missing input validation,
+        or SSRF/timeout gaps in network/process-execution code.
+        (2) Performance/concurrency concerns — thread-safety of shared
+        mutable state, blocking calls inside virtual threads, unbounded
+        resource usage, and missing cancellation/cleanup on
+        timeout/failure paths.
+        (3) Architectural concerns — new stateful/shared infrastructure,
+        changes to existing module contracts, or new coupling between
+        packages that weren't previously related. When such a change is
+        found, describe the concern and suggest what should be verified
+        or documented.
+        Module-specific additions for this repository:
+        This module is Spring Boot code (auto-configuration, starter, or example app). In addition to the standard checks, watch for Spring-specific concerns: (1) prefer constructor injection over field injection; flag @Autowired on fields and mutable setters on beans; (2) @Transactional placement — private methods, self-invocation via `this`, or missing propagation/isolation on read-write boundaries; (3) bean scope mismatches — request/session-scoped beans injected into singletons without a proxy; (4) @ConditionalOnBean / @ConditionalOnMissingBean ordering hazards in auto-config; (5) properties bound via @ConfigurationProperties over ad-hoc @Value; (6) actuator endpoints exposed without security; (7) blocking calls inside reactive/WebFlux paths; (8) starter modules polluting downstream classpath — verify the starter only pulls what an integrator really needs; (9) exposing internal domain types via REST controllers without a DTO; (10) missing input validation (@Valid) on request bodies.
+  abort_on_close: true
+  finishing_touches:
+    docstrings:
+      enabled: true
+    unit_tests:
+      enabled: true
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  learnings:
+    scope: auto
+  issues:
+    scope: auto
+  pull_requests:
+    scope: auto
