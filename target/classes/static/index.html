@@ -1,0 +1,3373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HiTorro JVS Explorer</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #333; }
+
+        /* Header */
+        .header { background: #1e293b; color: white; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+        .header-left { display: flex; align-items: center; gap: 1rem; }
+        .header h1 { font-size: 1.25rem; font-weight: 600; }
+        .header .subtitle { font-size: 0.85rem; color: #94a3b8; }
+        .status-indicators { display: flex; gap: 1rem; align-items: center; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 0.35rem; }
+        .status-dot.green { background: #22c55e; }
+        .status-dot.red { background: #ef4444; }
+        .status-dot.yellow { background: #eab308; }
+        .status-label { font-size: 0.8rem; color: #94a3b8; display: flex; align-items: center; }
+
+        /* Tabs */
+        .tabs { display: flex; background: #334155; padding: 0 2rem; }
+        .tab { padding: 0.75rem 1.25rem; color: #94a3b8; cursor: pointer; border-bottom: 2px solid transparent; font-size: 0.875rem; transition: color 0.15s; }
+        .tab:hover { color: white; }
+        .tab.active { color: white; border-bottom-color: #3b82f6; }
+
+        /* Layout */
+        .container { max-width: 1400px; margin: 1.5rem auto; padding: 0 1rem; }
+        .card { background: white; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 1.5rem; margin-bottom: 1.5rem; }
+        .card h2 { font-size: 1.1rem; margin-bottom: 0.5rem; color: #1e293b; }
+        .card .description { color: #64748b; margin-bottom: 1rem; font-size: 0.875rem; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+        .grid-3 { display: grid; grid-template-columns: 280px 1fr; gap: 1.5rem; }
+        .hidden { display: none; }
+
+        /* Form elements */
+        textarea { width: 100%; min-height: 250px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 0.85rem; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; resize: vertical; background: #fafafa; }
+        textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
+        button { padding: 0.5rem 1rem; border-radius: 0.375rem; border: none; cursor: pointer; font-size: 0.875rem; font-weight: 500; transition: background 0.15s; }
+        .btn-primary { background: #3b82f6; color: white; }
+        .btn-primary:hover { background: #2563eb; }
+        .btn-primary:disabled { background: #93c5fd; cursor: wait; }
+        .btn-green { background: #059669; color: white; }
+        .btn-green:hover { background: #047857; }
+        .btn-amber { background: #d97706; color: white; }
+        .btn-amber:hover { background: #b45309; }
+        .btn-secondary { background: #e2e8f0; color: #475569; }
+        .btn-secondary:hover { background: #cbd5e1; }
+        .btn-group { display: flex; gap: 0.5rem; margin: 0.75rem 0; flex-wrap: wrap; }
+        select, input[type=text] { padding: 0.4rem 0.6rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem; }
+        select:focus, input[type=text]:focus { outline: none; border-color: #3b82f6; }
+        label { font-size: 0.8rem; font-weight: 600; color: #475569; display: block; margin-bottom: 0.25rem; }
+
+        /* Checkboxes */
+        .checkbox-group { display: flex; gap: 1rem; flex-wrap: wrap; margin: 0.5rem 0; }
+        .checkbox-group label { display: flex; align-items: center; gap: 0.35rem; font-weight: 400; cursor: pointer; }
+        .checkbox-group input[type=checkbox] { accent-color: #3b82f6; }
+
+        /* Results */
+        .result { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0.375rem; padding: 0.75rem; min-height: 250px; overflow: auto; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; max-height: 600px; }
+
+        /* Type explorer */
+        .type-list { max-height: 600px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 0.375rem; }
+        .type-item { padding: 0.5rem 0.75rem; border-bottom: 1px solid #f1f5f9; cursor: pointer; font-size: 0.875rem; transition: background 0.1s; }
+        .type-item:hover { background: #f1f5f9; }
+        .type-item.selected { background: #eff6ff; border-left: 3px solid #3b82f6; }
+        .type-count { font-size: 0.75rem; color: #94a3b8; margin-left: 0.5rem; }
+
+        /* Badges */
+        .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; }
+        .badge-blue { background: #dbeafe; color: #1d4ed8; }
+        .badge-green { background: #dcfce7; color: #166534; }
+        .badge-amber { background: #fef3c7; color: #92400e; }
+        .badge-purple { background: #f3e8ff; color: #7c3aed; }
+        .badge-red { background: #fee2e2; color: #991b1b; }
+        .badge-gray { background: #f1f5f9; color: #475569; }
+
+        /* Field cards */
+        .field-card { padding: 0.5rem 0.75rem; margin: 0.25rem 0; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0.25rem; font-size: 0.85rem; }
+        .field-name { font-weight: 600; }
+        .field-meta { display: flex; gap: 0.35rem; flex-wrap: wrap; margin-top: 0.25rem; }
+        .dynamic-info { font-size: 0.75rem; color: #64748b; margin-top: 0.25rem; padding-left: 0.5rem; border-left: 2px solid #d97706; }
+        .group-card { padding: 0.4rem 0.6rem; background: #ede9fe; border: 1px solid #c4b5fd; border-radius: 0.25rem; margin-top: 0.25rem; font-size: 0.8rem; }
+
+        /* Status messages */
+        .status-msg { padding: 0.75rem; border-radius: 0.375rem; font-size: 0.85rem; margin-bottom: 0.75rem; }
+        .status-ok { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .status-err { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+        .status-warn { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+        .status-info { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+
+        /* JSON highlight */
+        .json-key { color: #0550ae; }
+        .json-string { color: #0a3069; }
+        .json-number { color: #0550ae; }
+        .json-bool { color: #cf222e; }
+        .json-null { color: #6e7781; }
+        .json-highlight { background: #fef3c7; border-radius: 2px; }
+
+        /* Side by side */
+        .side-by-side { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start; }
+
+        /* JSON Tree Viewer */
+        .json-tree { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 0.8rem; line-height: 1.5; }
+        .json-tree ul { list-style: none; padding-left: 1.2rem; margin: 0; }
+        .json-tree > ul { padding-left: 0; }
+        .json-tree li { position: relative; }
+        .json-tree .jt-toggle { cursor: pointer; user-select: none; display: inline-block; width: 1rem; text-align: center; color: #94a3b8; }
+        .json-tree .jt-toggle:hover { color: #3b82f6; }
+        .json-tree .jt-key { color: #0550ae; font-weight: 500; }
+        .json-tree .jt-key.jt-enriched { color: #d97706; background: #fef3c7; padding: 0 2px; border-radius: 2px; }
+        .json-tree .jt-string { color: #0a3069; }
+        .json-tree .jt-number { color: #0550ae; }
+        .json-tree .jt-bool { color: #cf222e; }
+        .json-tree .jt-null { color: #6e7781; font-style: italic; }
+        .json-tree .jt-bracket { color: #6e7781; }
+        .json-tree .jt-collapsed > ul { display: none; }
+        .json-tree .jt-summary { color: #94a3b8; font-style: italic; font-size: 0.75rem; }
+
+        /* Loading spinner */
+        .loading { display: inline-block; width: 16px; height: 16px; border: 2px solid #e2e8f0; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 0.5rem; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Sub-tabs */
+        .sub-tabs { display: flex; gap: 0; background: #f1f5f9; border-radius: 0.5rem; padding: 0.25rem; margin-bottom: 1rem; width: fit-content; }
+        .sub-tab { padding: 0.5rem 1.25rem; border-radius: 0.375rem; font-size: 0.85rem; font-weight: 500; color: #64748b; cursor: pointer; transition: all 0.15s; }
+        .sub-tab:hover { color: #1e293b; }
+        .sub-tab.active { background: white; color: #1e293b; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .grid, .grid-3, .side-by-side { grid-template-columns: 1fr; }
+            .tabs { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="header-left">
+        <h1>HiTorro JVS Explorer</h1>
+        <span class="subtitle">JSON Type System -- NLP -- Enrichment -- Search -- KVStore -- Viewer</span>
+    </div>
+    <div class="status-indicators" id="status-indicators">
+        <span class="status-label"><span class="status-dot yellow" id="ts-dot"></span> Types: <span id="ts-count">...</span></span>
+        <span class="status-label"><span class="status-dot yellow" id="ollama-dot"></span> Ollama: <span id="ollama-status">...</span></span>
+        <span class="status-label"><span class="status-dot yellow" id="search-dot"></span> Index: <span id="search-status">...</span></span>
+    </div>
+</div>
+
+<div class="tabs" id="tab-bar">
+    <div class="tab active" data-tab="types">Type Explorer</div>
+    <div class="tab" data-tab="enrich">Enrich &amp; NLP</div>
+    <div class="tab" data-tab="translate">Translation</div>
+    <div class="tab" data-tab="docs">Documents</div>
+    <div class="tab" data-tab="pipeline">NDJSON Pipeline</div>
+    <div class="tab" data-tab="search">Search</div>
+    <div class="tab" data-tab="viewer">Index Viewer</div>
+    <div class="tab" data-tab="features">Features</div>
+    <div class="tab" data-tab="unittime">Unit Time</div>
+    <div class="tab" data-tab="gittools">Git Tools</div>
+</div>
+
+<div class="container">
+
+    <!-- ==================== Type Explorer Tab ==================== -->
+    <div id="tab-types">
+        <div class="card">
+            <h2>JSON Type System - Type Explorer</h2>
+            <p class="description">
+                Browse type definitions loaded from <code>config/types/</code>. Click a type to view its fields, groups, dynamic field info, and tags.
+            </p>
+            <div class="grid-3">
+                <div>
+                    <div style="margin-bottom:0.5rem;display:flex;justify-content:space-between;align-items:center">
+                        <label style="margin:0">Available Types <span class="type-count" id="type-total"></span></label>
+                        <button class="btn-secondary" onclick="loadTypes()" style="font-size:0.75rem;padding:0.25rem 0.5rem">Refresh</button>
+                    </div>
+                    <div class="type-list" id="type-list"></div>
+                </div>
+                <div>
+                    <label>Type Definition</label>
+                    <div id="type-detail" style="min-height:500px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:0.375rem;padding:1rem;overflow:auto;max-height:700px;">
+                        <span style="color:#94a3b8">Select a type from the list to view its definition...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ==================== Enrich & NLP Tab ==================== -->
+    <div id="tab-enrich" class="hidden">
+        <div class="card">
+            <h2>Propaccess - JVS Path Navigator</h2>
+            <p class="description">
+                Navigate into a JVS document using dot-notation paths (e.g. <code>id.did</code>, <code>title.mls[0].text</code>).
+                Dynamic fields are computed transparently by the JVS type system when accessed.
+            </p>
+            <div class="grid">
+                <div>
+                    <label>JVS Document (JSON)</label>
+                    <textarea id="pa-input" style="min-height:200px">{
+  "type": "demo_document",
+  "id": {"domain": "demo", "did": "doc-001"},
+  "title": {"mls": [{"lang": "en", "text": "The quick brown fox jumped over the lazy dogs."}]},
+  "body": {"mls": [{"lang": "en", "text": "Natural language processing enables computers to understand human language."}]}
+}</textarea>
+                    <div style="display:flex;gap:0.5rem;align-items:end;margin-top:0.75rem">
+                        <div style="flex:1">
+                            <label>Path</label>
+                            <input type="text" id="pa-path" placeholder="e.g. id.did, title.mls[0].text, id.id (dynamic)" style="width:100%" value="title.mls[0].text">
+                        </div>
+                        <button class="btn-primary" onclick="propaccess()">Get Value</button>
+                    </div>
+                    <div style="margin-top:0.5rem">
+                        <span style="font-size:0.75rem;color:#64748b">Try: </span>
+                        <button class="btn-secondary" style="font-size:0.7rem;padding:0.15rem 0.4rem" onclick="document.getElementById('pa-path').value='id.did';propaccess()">id.did</button>
+                        <button class="btn-secondary" style="font-size:0.7rem;padding:0.15rem 0.4rem" onclick="document.getElementById('pa-path').value='id.id';propaccess()">id.id (dynamic)</button>
+                        <button class="btn-secondary" style="font-size:0.7rem;padding:0.15rem 0.4rem" onclick="document.getElementById('pa-path').value='title.mls[0].text';propaccess()">title.mls[0].text</button>
+                        <button class="btn-secondary" style="font-size:0.7rem;padding:0.15rem 0.4rem" onclick="document.getElementById('pa-path').value='title.mls[0].clean';propaccess()">title.mls[0].clean (dynamic)</button>
+                        <button class="btn-secondary" style="font-size:0.7rem;padding:0.15rem 0.4rem" onclick="document.getElementById('pa-path').value='title.mls';propaccess()">title.mls</button>
+                        <button class="btn-secondary" style="font-size:0.7rem;padding:0.15rem 0.4rem" onclick="document.getElementById('pa-path').value='id';propaccess()">id</button>
+                    </div>
+                </div>
+                <div>
+                    <label>Result</label>
+                    <div class="result" id="pa-result" style="min-height:200px">Enter a path and click Get Value...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Enrich &amp; Validate JVS Documents</h2>
+            <p class="description">
+                Enrich typed JSON documents with dynamic fields (stems, segmentation, POS tags, hashes) or validate against a type definition.
+                The JSON must have a <code>type</code> field matching a registered type (e.g. <code>core_sysobject</code>).
+            </p>
+            <div class="grid">
+                <div>
+                    <label>Input JSON</label>
+                    <textarea id="enrich-input" style="min-height:300px">{
+  "type": "core_sysobject",
+  "id": {"domain": "demo", "did": "doc-001"},
+  "title": {"mls": [{"lang": "en", "text": "The quick brown fox jumped over the lazy dogs."}]},
+  "body": {"mls": [{"lang": "en", "text": "Natural language processing enables computers to understand human language."}]}
+}</textarea>
+                    <label style="margin-top:0.75rem">Enrichment Tags</label>
+                    <div class="checkbox-group">
+                        <label><input type="checkbox" id="tag-basic" checked> basic</label>
+                        <label><input type="checkbox" id="tag-segmented"> segmented</label>
+                        <label><input type="checkbox" id="tag-pos"> pos</label>
+                        <label><input type="checkbox" id="tag-ner"> ner</label>
+                        <label><input type="checkbox" id="tag-hash"> hash</label>
+                        <label><input type="checkbox" id="tag-parsed"> parsed</label>
+                        <label><input type="checkbox" id="tag-answers"> answers</label>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn-primary" onclick="enrichDoc()">Enrich</button>
+                        <button class="btn-green" onclick="validateDoc()">Validate</button>
+                    </div>
+                </div>
+                <div>
+                    <label>Result</label>
+                    <div class="result" id="enrich-result" style="min-height:300px">Enriched or validated result will appear here...
+
+Enrichment adds dynamic fields to MLS text fields:
+  - basic: stems
+  - segmented: clean text, segmented sentences, spans
+  - pos: part-of-speech tags
+  - ner: named entity recognition (person, location, organization, etc.)
+  - hash: normhash
+  - parsed: dependency parse
+  - answers: question answering</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== Translation Tab ==================== -->
+    <div id="tab-translate" class="hidden">
+        <div class="card">
+            <h2>AI Translation (Ollama)</h2>
+            <p class="description">
+                Translate MLS text fields in a JVS document using a local Ollama LLM. Requires Ollama running locally.
+            </p>
+            <div id="translate-status-bar" class="status-msg status-info" style="display:none"></div>
+            <div class="grid">
+                <div>
+                    <label>Input JSON (with MLS fields)</label>
+                    <textarea id="translate-input" style="min-height:200px">{
+  "type": "core_sysobject",
+  "title": {"mls": [{"lang": "en", "text": "The quick brown fox jumped over the lazy dogs."}]},
+  "body": {"mls": [{"lang": "en", "text": "Natural language processing enables computers to understand language."}]}
+}</textarea>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:0.75rem">
+                        <div>
+                            <label>MLS field paths (comma-separated)</label>
+                            <input type="text" id="translate-fields" value="title,body" style="width:100%">
+                        </div>
+                        <div>
+                            <label>Source language</label>
+                            <select id="translate-source" style="width:100%">
+                                <option value="en" selected>English</option>
+                                <option value="de">German</option>
+                                <option value="fr">French</option>
+                                <option value="es">Spanish</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="margin-top:0.75rem">
+                        <label>Target languages</label>
+                        <div class="checkbox-group">
+                            <label><input type="checkbox" class="target-lang" value="de"> German</label>
+                            <label><input type="checkbox" class="target-lang" value="es"> Spanish</label>
+                            <label><input type="checkbox" class="target-lang" value="fr"> French</label>
+                            <label><input type="checkbox" class="target-lang" value="it"> Italian</label>
+                            <label><input type="checkbox" class="target-lang" value="pt"> Portuguese</label>
+                            <label><input type="checkbox" class="target-lang" value="nl"> Dutch</label>
+                            <label><input type="checkbox" class="target-lang" value="ja"> Japanese</label>
+                            <label><input type="checkbox" class="target-lang" value="zh"> Chinese</label>
+                            <label><input type="checkbox" class="target-lang" value="fa"> Persian</label>
+                        </div>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn-primary" onclick="translateDoc()">Translate</button>
+                        <button class="btn-secondary" onclick="checkTranslateStatus()">Check Ollama Status</button>
+                    </div>
+                </div>
+                <div>
+                    <label>Translation Result</label>
+                    <div class="result" id="translate-result" style="min-height:350px">Translation result will appear here...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== Documents Tab ==================== -->
+    <div id="tab-docs" class="hidden">
+        <div class="card">
+            <h2>Create Document</h2>
+            <p class="description">Create a typed document. The system resolves the type and adds metadata.</p>
+            <div class="grid">
+                <div>
+                    <label>Input JSON</label>
+                    <textarea id="doc-input" style="min-height:200px">{
+  "type": "demo_article",
+  "id": {"domain": "blog", "did": "article-001"},
+  "title": {"mls": [{"lang": "en", "text": "Introduction to HiTorro JVS"}]},
+  "tags": ["jvs", "type-system", "nlp"]
+}</textarea>
+                    <div class="btn-group">
+                        <button class="btn-primary" onclick="createDoc()">Create Document</button>
+                    </div>
+                </div>
+                <div>
+                    <label>Result</label>
+                    <div class="result" id="doc-result" style="min-height:200px">Document result will appear here...</div>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <h2>Merge Documents</h2>
+            <p class="description">Deep-merge a base document with an overlay. Overlay values take precedence.</p>
+            <div class="grid">
+                <div>
+                    <label>Base Document</label>
+                    <textarea id="merge-base" style="min-height:120px">{"name": "original", "version": 1, "shared": "old value", "tags": ["a", "b"]}</textarea>
+                    <label style="margin-top:0.5rem">Overlay Document</label>
+                    <textarea id="merge-overlay" style="min-height:120px">{"shared": "new value", "extra": "added field", "version": 2}</textarea>
+                    <div class="btn-group">
+                        <button class="btn-primary" onclick="mergeDocs()">Merge</button>
+                    </div>
+                </div>
+                <div>
+                    <label>Merged Result</label>
+                    <div class="result" id="merge-result" style="min-height:280px">Merged document will appear here...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== NDJSON Pipeline Tab ==================== -->
+    <div id="tab-pipeline" class="hidden">
+        <div class="card">
+            <h2>NDJSON Document Pipeline</h2>
+            <p class="description">
+                Process the <code>data/demo-documents.ndjson</code> dataset through enrichment (NER, segmentation, stemming) and translation pipelines.
+                Compare hitorro iterator/mapper/sink pipelines with Java Streams. Results are written back to NDJSON files.
+            </p>
+            <div style="margin-bottom:1rem">
+                <button class="btn-secondary" onclick="loadDatasetPreview()">Load Dataset Preview</button>
+                <span id="pipeline-dataset-info" style="margin-left:0.75rem;font-size:0.85rem;color:#64748b"></span>
+            </div>
+            <div id="pipeline-dataset-preview" class="result" style="min-height:80px;max-height:200px;display:none"></div>
+        </div>
+
+        <div class="card">
+            <h2>Pipeline Configuration</h2>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
+                <div>
+                    <label>Processing Mode</label>
+                    <select id="pipeline-mode" style="width:100%">
+                        <option value="iterator">Hitorro Iterator / Mapper / Sink</option>
+                        <option value="stream">Java Streams</option>
+                        <option value="iterator-to-stream">Bridge: Iterator -> Stream</option>
+                        <option value="stream-to-sink">Bridge: Stream -> Iterator Sink</option>
+                    </select>
+                    <label style="margin-top:0.75rem">Pipeline Type</label>
+                    <select id="pipeline-type" style="width:100%">
+                        <option value="enrich">Enrich (NER + NLP)</option>
+                        <option value="translate">Translate</option>
+                        <option value="combined">Combined (Enrich + Translate)</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Enrichment Tags</label>
+                    <div class="checkbox-group">
+                        <label><input type="checkbox" class="pipeline-tag" value="basic" checked> basic</label>
+                        <label><input type="checkbox" class="pipeline-tag" value="segmented" checked> segmented</label>
+                        <label><input type="checkbox" class="pipeline-tag" value="ner" checked> ner</label>
+                        <label><input type="checkbox" class="pipeline-tag" value="pos"> pos</label>
+                        <label><input type="checkbox" class="pipeline-tag" value="hash"> hash</label>
+                    </div>
+                    <label style="margin-top:0.75rem">Translation Settings</label>
+                    <div style="display:grid;grid-template-columns:auto 1fr;gap:0.5rem;align-items:center">
+                        <span style="font-size:0.8rem">Source:</span>
+                        <select id="pipeline-source-lang" style="width:100%">
+                            <option value="en" selected>English</option>
+                            <option value="de">German</option>
+                            <option value="fr">French</option>
+                        </select>
+                        <span style="font-size:0.8rem">Targets:</span>
+                        <div class="checkbox-group" style="margin:0">
+                            <label><input type="checkbox" class="pipeline-target-lang" value="de" checked> DE</label>
+                            <label><input type="checkbox" class="pipeline-target-lang" value="es" checked> ES</label>
+                            <label><input type="checkbox" class="pipeline-target-lang" value="fr"> FR</label>
+                            <label><input type="checkbox" class="pipeline-target-lang" value="it"> IT</label>
+                            <label><input type="checkbox" class="pipeline-target-lang" value="ja"> JA</label>
+                            <label><input type="checkbox" class="pipeline-target-lang" value="zh"> ZH</label>
+                            <label><input type="checkbox" class="pipeline-target-lang" value="fa"> FA</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="btn-group" style="margin-top:1rem">
+                <button class="btn-primary" onclick="runPipeline()" id="pipeline-run-btn">Run Pipeline</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Pipeline Results</h2>
+            <div id="pipeline-status" style="display:none"></div>
+            <div id="pipeline-result" class="result" style="min-height:300px">
+                Pipeline results will appear here. Choose a mode and pipeline type above, then click Run Pipeline.
+
+Modes:
+  - Hitorro Iterator: Uses JSONIterator -> map() -> JvsEnrichMapper -> JsonSink
+  - Java Streams: Uses Stream.map() -> collect() -> writeNdjsonFile()
+  - Iterator -> Stream: Uses JSONIterator.toStream() bridge
+  - Stream -> Iterator Sink: Uses AbstractIterator.fromStream() -> .sink(JsonSink)
+
+Pipelines:
+  - Enrich: Applies NLP enrichment (NER, segmentation, stemming) to all documents
+  - Translate: Translates title and body MLS fields via Ollama
+  - Combined: Enriches first, then translates</div>
+        </div>
+    </div>
+
+    <!-- ==================== Search Tab (with sub-tabs) ==================== -->
+    <div id="tab-search" class="hidden">
+
+        <div class="sub-tabs" id="search-sub-tabs">
+            <div class="sub-tab active" data-subtab="simple-search">Simple Search</div>
+            <div class="sub-tab" data-subtab="object-retrieval">Object Retrieval</div>
+        </div>
+
+        <!-- ── Sub-tab: Simple Search ── -->
+        <div id="subtab-simple-search">
+        <div class="card">
+            <h2>Translate &rarr; Enrich &rarr; Index Pipeline</h2>
+            <p class="description">
+                Pipeline: Load dataset &rarr; Translate MLS fields to target languages (Ollama) &rarr;
+                Enrich with NLP (segmentation, NER, stemming) across all languages &rarr;
+                Store in RocksDB KVStore + Index in Lucene.
+                The index stores only projected fields for search; full documents are retrieved from the KV store.
+            </p>
+
+            <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:0.75rem">
+                <div style="flex:1;min-width:250px">
+                    <label>Enrichment Tags</label>
+                    <div class="checkbox-group">
+                        <label><input type="checkbox" class="enrich-tag" value="basic" checked> basic</label>
+                        <label><input type="checkbox" class="enrich-tag" value="segmented" checked> segmented</label>
+                        <label><input type="checkbox" class="enrich-tag" value="ner" checked> ner</label>
+                        <label><input type="checkbox" class="enrich-tag" value="pos"> pos</label>
+                        <label><input type="checkbox" class="enrich-tag" value="hash"> hash</label>
+                        <label><input type="checkbox" class="enrich-tag" value="parsed"> parsed</label>
+                    </div>
+                </div>
+                <div style="flex:2;min-width:300px">
+                    <label>Translate to (Ollama &mdash; runs before enrichment)</label>
+                    <div class="checkbox-group" style="max-height:none">
+                        <label><input type="checkbox" class="target-lang" value="de"> de (German)</label>
+                        <label><input type="checkbox" class="target-lang" value="es"> es (Spanish)</label>
+                        <label><input type="checkbox" class="target-lang" value="fr"> fr (French)</label>
+                        <label><input type="checkbox" class="target-lang" value="it"> it (Italian)</label>
+                        <label><input type="checkbox" class="target-lang" value="nl"> nl (Dutch)</label>
+                        <label><input type="checkbox" class="target-lang" value="pt"> pt (Portuguese)</label>
+                        <label><input type="checkbox" class="target-lang" value="ja"> ja (Japanese)</label>
+                        <label><input type="checkbox" class="target-lang" value="zh"> zh (Chinese)</label>
+                        <label><input type="checkbox" class="target-lang" value="fa"> fa (Persian)</label>
+                    </div>
+                </div>
+            </div>
+            <div class="btn-group">
+                <button class="btn-green" onclick="indexDataset()" id="index-btn">Translate &rarr; Enrich &rarr; Index Dataset</button>
+                <button class="btn-secondary" onclick="document.querySelectorAll('.enrich-tag').forEach(c=>c.checked=false);document.querySelectorAll('.target-lang').forEach(c=>c.checked=false);indexDataset()">Index Raw (no enrichment)</button>
+            </div>
+            <div id="index-status" style="display:none"></div>
+        </div>
+
+        <div class="card">
+            <h2>Query Builder - Indexed Fields</h2>
+            <p class="description">
+                The type system's Lucene projection maps JVS fields to Lucene field names using the dotted path syntax.
+                Select a type to see its indexed fields. Click a field path to insert it into the query.
+                The language affects i18n text fields (e.g. <code>text_en_s</code> vs <code>text_de_s</code>).
+            </p>
+            <div style="display:flex;gap:0.75rem;align-items:end;flex-wrap:wrap;margin-bottom:0.75rem">
+                <div>
+                    <label>Type</label>
+                    <select id="qb-type" onchange="loadIndexedFields()" style="min-width:180px">
+                        <option value="demo_document" selected>demo_document</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Language</label>
+                    <select id="search-lang" onchange="loadIndexedFields()" style="min-width:80px">
+                        <option value="en" selected>en</option>
+                        <option value="de">de</option>
+                        <option value="es">es</option>
+                        <option value="fr">fr</option>
+                        <option value="it">it</option>
+                        <option value="nl">nl</option>
+                        <option value="pt">pt</option>
+                        <option value="ja">ja</option>
+                        <option value="zh">zh</option>
+                        <option value="fa">fa</option>
+                    </select>
+                </div>
+            </div>
+            <div id="qb-fields" style="max-height:250px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:0.375rem;font-size:0.8rem">
+                <div style="color:#94a3b8;padding:0.5rem">Loading indexed fields...</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Search Documents</h2>
+            <p class="description">
+                Use the field paths from the query builder above.
+                The query parser resolves dotted paths (e.g. <code>title.mls.clean</code>) to physical Lucene field names.
+                Fields must include the full path down to the sub-field that has an index group.
+            </p>
+            <div style="display:flex;gap:0.75rem;align-items:end;flex-wrap:wrap;margin-bottom:0.75rem">
+                <div style="flex:1;min-width:250px">
+                    <label>Query</label>
+                    <input type="text" id="search-query" placeholder="e.g. title.mls.clean:climate" style="width:100%" value="*:*">
+                </div>
+                <div>
+                    <label>Offset</label>
+                    <input type="text" id="search-offset" value="0" style="width:60px">
+                </div>
+                <div>
+                    <label>Limit</label>
+                    <input type="text" id="search-limit" value="10" style="width:60px">
+                </div>
+                <button class="btn-primary" onclick="searchDocuments()" id="search-btn">Search</button>
+            </div>
+            <div style="display:flex;gap:2rem;flex-wrap:wrap;margin-bottom:1rem">
+                <div>
+                    <label>Facets</label>
+                    <div class="checkbox-group">
+                        <label><input type="checkbox" class="search-facet" value="department" checked> department</label>
+                        <label><input type="checkbox" class="search-facet" value="classification" checked> classification</label>
+                        <label><input type="checkbox" class="search-facet" value="author"> author</label>
+                    </div>
+                </div>
+                <div>
+                    <label>Result Source</label>
+                    <div class="checkbox-group">
+                        <label style="display:inline-flex;align-items:center;gap:0.35rem">
+                            <input type="checkbox" id="use-kvstore" checked>
+                            <span>Fetch from KV Store (full translated + enriched docs)</span>
+                            <span id="kvstore-badge" class="badge badge-purple" style="font-size:0.65rem">KV</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div id="search-result-status" style="display:none"></div>
+            <div id="search-facets"></div>
+            <div id="search-results" class="result" style="min-height:200px">
+                Index the dataset first, then enter a query and click Search.
+            </div>
+        </div>
+        </div><!-- end subtab-simple-search -->
+
+        <!-- ── Sub-tab: Object Retrieval ── -->
+        <div id="subtab-object-retrieval" class="hidden">
+        <div class="card">
+            <h2>Object Retrieval &amp; Search</h2>
+            <p class="description">
+                Multi-index retrieval pipeline (<code>hitorro-retrieval</code>) with pluggable search providers, sort-aware result merging, AI summarization, and KVStore document fetch.
+                <strong>Single index</strong>: full pipeline (search &rarr; fetch &rarr; enrich &rarr; paginate &rarr; facets &rarr; summarize).
+                <strong>Multiple indexes</strong>: CompositeSearchProvider fans out to per-index providers, merges results via Score, RRF, or Field sort.
+            </p>
+            <div id="rt-status-msg"></div>
+        </div>
+
+        <div class="grid" style="grid-template-columns:340px 1fr">
+            <!-- Left: Index Management -->
+            <div>
+                <div class="card">
+                    <h2>Datasets &amp; Indexes</h2>
+
+                    <label>Load Example Dataset</label>
+                    <p style="font-size:0.8rem;color:#64748b;margin-bottom:0.5rem">Each dataset creates a named index with JVS-typed documents. Optionally enrich at index time so NLP fields are pre-computed.</p>
+                    <div style="margin-bottom:0.5rem">
+                        <label style="font-size:0.75rem">Enrich at index time</label>
+                        <div class="checkbox-group" style="gap:0.5rem">
+                            <label><input type="checkbox" class="rt-enrich-tag" value="basic" checked> basic</label>
+                            <label><input type="checkbox" class="rt-enrich-tag" value="segmented"> segmented</label>
+                            <label><input type="checkbox" class="rt-enrich-tag" value="ner"> ner</label>
+                            <label><input type="checkbox" class="rt-enrich-tag" value="pos"> pos</label>
+                        </div>
+                    </div>
+                    <div id="rt-dataset-btns" style="display:flex;flex-direction:column;gap:0.35rem;margin-bottom:0.75rem">
+                        <span class="loading"></span> Loading datasets...
+                    </div>
+
+                    <div style="border-top:1px solid #e2e8f0;padding-top:0.75rem;margin-top:0.5rem">
+                        <label>Create Custom Index</label>
+                        <div style="display:flex;gap:0.5rem;margin-top:0.25rem">
+                            <input type="text" id="rt-new-index" placeholder="Index name" style="flex:1">
+                            <button class="btn-primary" onclick="rtCreateIndex()">Create</button>
+                        </div>
+                        <div style="margin-top:0.5rem">
+                            <label>Type (optional)</label>
+                            <select id="rt-index-type" style="width:100%">
+                                <option value="">(no type)</option>
+                            </select>
+                        </div>
+                        <div style="margin-top:0.5rem">
+                            <textarea id="rt-custom-docs" style="min-height:100px;font-size:0.75rem" placeholder='[{"id":"doc-1","title":"My Document","content":"..."}]'></textarea>
+                            <button class="btn-secondary" onclick="rtLoadCustomIntoSelected()" style="margin-top:0.25rem;font-size:0.8rem">Load JSON into selected index</button>
+                        </div>
+                    </div>
+
+                    <div style="border-top:1px solid #e2e8f0;padding-top:0.75rem;margin-top:0.75rem">
+                        <label>Active Indexes <span id="rt-index-count" class="badge badge-blue" style="font-size:0.7rem">0</span></label>
+                        <div id="rt-index-list" style="border:1px solid #e2e8f0;border-radius:0.375rem;max-height:300px;overflow-y:auto;margin-top:0.25rem">
+                            <div style="padding:0.5rem;color:#94a3b8;font-size:0.85rem">No indexes yet -- load a dataset above</div>
+                        </div>
+                    </div>
+
+                    <div style="border-top:1px solid #e2e8f0;padding-top:0.75rem;margin-top:0.75rem">
+                        <label>KVStore (Document Fetch)</label>
+                        <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.25rem">
+                            <button class="btn-secondary" id="rt-kv-btn" onclick="rtToggleKvStore()">Enable KVStore</button>
+                            <span id="rt-kv-status" class="badge badge-gray">Disabled</span>
+                        </div>
+                    </div>
+
+                    <div style="border-top:1px solid #e2e8f0;padding-top:0.75rem;margin-top:0.75rem">
+                        <label>Transport Mode</label>
+                        <p style="font-size:0.75rem;color:#64748b;margin-bottom:0.25rem">Switch between local in-process calls and wire transport (HTTP). Remote mode calls the same JVM via HTTP to demonstrate the protocol.</p>
+                        <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.25rem">
+                            <button class="btn-secondary" id="rt-transport-btn" onclick="rtToggleTransport()">Switch to Remote</button>
+                            <span id="rt-transport-status" class="badge badge-green">Local</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Pipeline Execution -->
+            <div>
+                <div class="card">
+                    <h2>Pipeline Query Builder</h2>
+
+                    <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:0.75rem;align-items:start">
+                        <div style="flex:1;min-width:200px">
+                            <label>Target Indexes <span style="font-size:0.75rem;font-weight:400;color:#64748b">(select one or more)</span></label>
+                            <div id="rt-query-indexes" style="border:1px solid #e2e8f0;border-radius:0.375rem;padding:0.5rem;max-height:120px;overflow-y:auto;margin-top:0.25rem">
+                                <span style="color:#94a3b8;font-size:0.8rem">No indexes available</span>
+                            </div>
+                        </div>
+                        <div style="min-width:100px">
+                            <label>Language</label>
+                            <select id="rt-query-lang" style="width:100%">
+                                <option value="en">en</option>
+                                <option value="de">de</option>
+                                <option value="es">es</option>
+                                <option value="fr">fr</option>
+                                <option value="it">it</option>
+                                <option value="pt">pt</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Search Stage -->
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:0.375rem;padding:0.75rem;margin-bottom:0.75rem">
+                        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">
+                            <span class="badge badge-blue">Stage 1</span>
+                            <strong style="font-size:0.85rem">IndexRetriever</strong>
+                            <span style="font-size:0.75rem;color:#64748b">-- Lucene search</span>
+                        </div>
+                        <label>Query <span style="font-weight:400;color:#64748b">(click fields below to insert, supports AND, OR, phrases, wildcards)</span></label>
+                        <div style="display:flex;gap:0.5rem;margin-bottom:0.5rem">
+                            <input type="text" id="rt-search-query" value="*:*" style="flex:1" placeholder="field:term AND field:term">
+                            <button class="btn-secondary" onclick="rtInsertOperator(' AND ')" style="font-size:0.75rem;padding:0.25rem 0.5rem">AND</button>
+                            <button class="btn-secondary" onclick="rtInsertOperator(' OR ')" style="font-size:0.75rem;padding:0.25rem 0.5rem">OR</button>
+                            <button class="btn-secondary" onclick="rtInsertOperator(' NOT ')" style="font-size:0.75rem;padding:0.25rem 0.5rem">NOT</button>
+                            <button class="btn-secondary" onclick="document.getElementById('rt-search-query').value='*:*'" style="font-size:0.75rem;padding:0.25rem 0.5rem">Clear</button>
+                        </div>
+                        <div id="rt-field-suggestions" style="display:flex;gap:0.35rem;flex-wrap:wrap;margin-bottom:0.5rem;max-height:80px;overflow-y:auto">
+                            <span style="color:#94a3b8;font-size:0.75rem">Select an index to see searchable fields</span>
+                        </div>
+                        <div style="display:flex;gap:0.75rem;flex-wrap:wrap">
+                            <div>
+                                <label>Offset</label>
+                                <input type="text" id="rt-search-offset" value="0" style="width:60px">
+                            </div>
+                            <div>
+                                <label>Limit</label>
+                                <input type="text" id="rt-search-limit" value="10" style="width:60px">
+                            </div>
+                            <div>
+                                <label>Facets (comma-separated)</label>
+                                <input type="text" id="rt-search-facets" value="department,classification" style="width:200px">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Document Fetch Stage -->
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:0.375rem;padding:0.75rem;margin-bottom:0.75rem">
+                        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">
+                            <span class="badge badge-green">Stage 2</span>
+                            <strong style="font-size:0.85rem">DocumentRetriever</strong>
+                            <span style="font-size:0.75rem;color:#64748b">-- KVStore fetch</span>
+                        </div>
+                        <div class="checkbox-group">
+                            <label><input type="checkbox" id="rt-fetch-enabled"> Enable document fetch from KVStore</label>
+                        </div>
+                    </div>
+
+                    <!-- Fixup Stage -->
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:0.375rem;padding:0.75rem;margin-bottom:0.75rem">
+                        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">
+                            <span class="badge badge-amber">Stage 3</span>
+                            <strong style="font-size:0.85rem">FixupRetriever</strong>
+                            <span style="font-size:0.75rem;color:#64748b">-- NLP enrichment</span>
+                        </div>
+                        <div class="checkbox-group">
+                            <label><input type="checkbox" class="rt-fixup-tag" value="basic"> basic</label>
+                            <label><input type="checkbox" class="rt-fixup-tag" value="segmented"> segmented</label>
+                            <label><input type="checkbox" class="rt-fixup-tag" value="ner"> ner</label>
+                            <label><input type="checkbox" class="rt-fixup-tag" value="pos"> pos</label>
+                            <label><input type="checkbox" class="rt-fixup-tag" value="hash"> hash</label>
+                        </div>
+                    </div>
+
+                    <!-- Pagination Stage -->
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:0.375rem;padding:0.75rem;margin-bottom:0.75rem">
+                        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">
+                            <span class="badge badge-purple">Stage 4</span>
+                            <strong style="font-size:0.85rem">PaginationRetriever</strong>
+                            <span style="font-size:0.75rem;color:#64748b">-- client-side paging</span>
+                        </div>
+                        <div class="checkbox-group" style="margin-bottom:0.5rem">
+                            <label><input type="checkbox" id="rt-page-enabled"> Enable client-side pagination</label>
+                        </div>
+                        <div style="display:flex;gap:0.75rem">
+                            <div>
+                                <label>Rows</label>
+                                <input type="text" id="rt-page-rows" value="5" style="width:60px">
+                            </div>
+                            <div>
+                                <label>Page</label>
+                                <input type="text" id="rt-page-page" value="0" style="width:60px">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Facet Stage (automatic) -->
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:0.375rem;padding:0.75rem;margin-bottom:0.75rem">
+                        <div style="display:flex;align-items:center;gap:0.5rem">
+                            <span class="badge badge-gray">Stage 5</span>
+                            <strong style="font-size:0.85rem">FacetRetriever</strong>
+                            <span style="font-size:0.75rem;color:#64748b">-- automatic when facets requested</span>
+                        </div>
+                    </div>
+
+                    <!-- Summarization Stage -->
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:0.375rem;padding:0.75rem;margin-bottom:0.75rem">
+                        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">
+                            <span class="badge badge-red">Stage 6</span>
+                            <strong style="font-size:0.85rem">SummarizationRetriever</strong>
+                            <span style="font-size:0.75rem;color:#64748b">-- AI-powered result summary (requires Ollama)</span>
+                        </div>
+                        <div class="checkbox-group">
+                            <label><input type="checkbox" id="rt-summarize-enabled"> Enable AI summarization</label>
+                        </div>
+                    </div>
+
+                    <!-- Merge Strategy (for multi-index) -->
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:0.375rem;padding:0.75rem;margin-bottom:0.75rem">
+                        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">
+                            <span class="badge badge-blue">Multi-Index</span>
+                            <strong style="font-size:0.85rem">Result Merger</strong>
+                            <span style="font-size:0.75rem;color:#64748b">-- how to merge results when searching multiple indexes</span>
+                        </div>
+                        <div style="display:flex;gap:0.75rem;flex-wrap:wrap">
+                            <label><input type="radio" name="rt-merger" value="score" checked> Score (relevance)</label>
+                            <label><input type="radio" name="rt-merger" value="rrf"> RRF (rank fusion)</label>
+                            <label><input type="radio" name="rt-merger" value="field"> Field sort</label>
+                        </div>
+                    </div>
+
+                    <button class="btn-primary" onclick="rtExecutePipeline()" id="rt-execute-btn" style="font-size:1rem;padding:0.6rem 1.5rem">
+                        Execute Pipeline
+                    </button>
+                </div>
+
+                <!-- Results -->
+                <div class="card">
+                    <h2>Pipeline Results</h2>
+
+                    <div id="rt-result-summary" style="margin-bottom:0.75rem"></div>
+                    <div id="rt-result-meta" style="margin-bottom:0.75rem"></div>
+                    <div id="rt-result-stages" style="margin-bottom:0.75rem"></div>
+
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:0.75rem">
+                        <div>
+                            <label>Facets</label>
+                            <div id="rt-result-facets" style="border:1px solid #e2e8f0;border-radius:0.375rem;padding:0.5rem;min-height:60px;background:#fafafa">
+                                <span style="color:#94a3b8;font-size:0.8rem">Not retrieved - add facet field names above</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label>Context Attributes</label>
+                            <div id="rt-result-context" style="border:1px solid #e2e8f0;border-radius:0.375rem;padding:0.5rem;min-height:60px;background:#fafafa">
+                                <span style="color:#94a3b8;font-size:0.8rem">Not retrieved</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem">
+                        <label>Documents</label>
+                        <div style="display:flex;gap:0.25rem">
+                            <button class="btn-secondary" id="rt-view-pretty" onclick="rtSetViewMode('pretty')" style="font-size:0.7rem;padding:0.15rem 0.5rem;background:#3b82f6;color:white">Pretty</button>
+                            <button class="btn-secondary" id="rt-view-json" onclick="rtSetViewMode('json')" style="font-size:0.7rem;padding:0.15rem 0.5rem">JSON</button>
+                        </div>
+                    </div>
+                    <div id="rt-result-docs" class="result" style="max-height:600px"></div>
+
+                    <div style="margin-top:0.75rem;display:flex;gap:0.75rem;flex-wrap:wrap">
+                        <details style="flex:1;min-width:200px">
+                            <summary style="cursor:pointer;font-size:0.8rem;color:#64748b;font-weight:600">Aggregates (raw)</summary>
+                            <div id="rt-result-aggregates" style="font-size:0.75rem"></div>
+                        </details>
+                        <details style="flex:1;min-width:200px">
+                            <summary style="cursor:pointer;font-size:0.8rem;color:#64748b;font-weight:600">Full Response (raw JSON)</summary>
+                            <pre id="rt-result-raw" style="font-size:0.7rem;background:#f8fafc;padding:0.5rem;border-radius:0.25rem;overflow:auto;max-height:400px;margin-top:0.25rem"></pre>
+                        </details>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div><!-- end subtab-object-retrieval -->
+
+    </div><!-- end tab-search -->
+
+    <!-- ==================== Index Viewer Tab ==================== -->
+    <div id="tab-viewer" class="hidden">
+        <div class="card">
+            <h2>Lucene Index Viewer</h2>
+            <p class="description">Inspect the Lucene index internals: statistics, fields, stored documents, and term frequencies.</p>
+            <div style="margin-bottom:0.75rem">
+                <label>Select Index</label>
+                <select id="viewer-index-select" style="min-width:200px" onchange="viewerIndexChanged()">
+                    <option value="">Simple Search (documents)</option>
+                </select>
+                <button class="btn-secondary" onclick="viewerRefreshIndexList()" style="font-size:0.75rem;padding:0.2rem 0.5rem;margin-left:0.5rem">Refresh</button>
+            </div>
+            <div class="btn-group">
+                <button class="btn-primary" onclick="viewerStats()">Index Stats</button>
+                <button class="btn-primary" onclick="viewerFields()">List Fields</button>
+                <button class="btn-primary" onclick="viewerDocs()">List Documents</button>
+            </div>
+            <div id="viewer-result" class="result" style="min-height:300px">Click a button above to inspect the Lucene index.</div>
+        </div>
+        <div class="card">
+            <h2>Term Browser</h2>
+            <p class="description">Browse terms in a specific field. Click a field name above to populate.</p>
+            <div style="display:flex;gap:0.75rem;align-items:end;margin-bottom:0.75rem">
+                <div style="flex:1">
+                    <label>Field Name</label>
+                    <input type="text" id="viewer-term-field" placeholder="e.g. title.mls.clean.text_en_s" style="width:100%">
+                </div>
+                <div>
+                    <label>Limit</label>
+                    <input type="text" id="viewer-term-limit" value="50" style="width:60px">
+                </div>
+                <button class="btn-primary" onclick="viewerTerms()">Browse Terms</button>
+            </div>
+            <div id="viewer-terms-result" class="result" style="min-height:200px">Enter a field name and click Browse Terms.</div>
+            <div id="viewer-postings-result" style="display:none;margin-top:0.75rem"></div>
+        </div>
+
+        <div class="card">
+            <h2>Analyzer Chain Builder</h2>
+            <p class="description">Build a custom analysis chain and test it on sample text. See token positions, offsets, and types.</p>
+            <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:0.75rem">
+                <div>
+                    <label>Tokenizer</label>
+                    <select id="analyzer-tokenizer" style="min-width:180px">
+                        <option value="standard">standard</option>
+                    </select>
+                </div>
+                <div style="flex:1;min-width:200px">
+                    <label>Token Filters <span style="font-weight:400;color:#64748b">(add in order)</span></label>
+                    <div style="display:flex;gap:0.5rem;margin-bottom:0.25rem">
+                        <select id="analyzer-filter-select" style="flex:1"><option value="">-- select filter --</option></select>
+                        <button class="btn-secondary" onclick="analyzerAddFilter()" style="font-size:0.8rem">+ Add</button>
+                    </div>
+                    <div id="analyzer-filter-chain" style="display:flex;gap:0.25rem;flex-wrap:wrap"></div>
+                </div>
+            </div>
+            <label>Test Text</label>
+            <textarea id="analyzer-text" style="min-height:60px">The Quick Brown Foxes jumped over the lazy dogs in &lt;person&gt;New York&lt;/person&gt;</textarea>
+            <div class="btn-group">
+                <button class="btn-primary" onclick="analyzerAnalyze()">Analyze</button>
+                <button class="btn-secondary" onclick="analyzerClear()">Clear Filters</button>
+            </div>
+            <div id="analyzer-result" class="result" style="min-height:150px">Configure a chain and click Analyze.</div>
+        </div>
+    </div>
+
+    <!-- ==================== Features Tab ==================== -->
+    <div id="tab-features" class="hidden">
+        <div class="card">
+            <h2>Feature Extraction</h2>
+            <p class="description">Extract computed features from JSON documents.</p>
+            <textarea id="feat-input" style="min-height:150px" placeholder='{"id": 1, "title": "Test", "body": "Content here"}'></textarea>
+            <div class="btn-group">
+                <button class="btn-primary" onclick="extractFeatures()">Extract Features</button>
+                <button class="btn-green" onclick="extractBatch()">Extract Batch</button>
+                <button class="btn-amber" onclick="indexFeatures()">Build Feature Index</button>
+                <button class="btn-secondary" onclick="clearFeatures()">Clear</button>
+            </div>
+            <div id="feat-result" class="result" style="min-height:200px"></div>
+        </div>
+        <div class="card" style="margin-top:1rem">
+            <h2>Available Features</h2>
+            <div id="feat-definitions"></div>
+        </div>
+    </div>
+
+    <!-- ==================== Unit Time Tab ==================== -->
+    <div id="tab-unittime" class="hidden">
+        <div class="card">
+            <h2>Unit Time - Performance Benchmarks</h2>
+            <p class="description">
+                Measure the cost of primitive Java operations in nanoseconds and CPU instruction cycles.
+                Results are calibrated against a baseline local-assignment operation (= 1 unit).
+            </p>
+            <div id="ut-cpu-info" style="margin-bottom:0.75rem"></div>
+            <div style="display:flex;gap:0.75rem;align-items:end;flex-wrap:wrap;margin-bottom:0.75rem">
+                <div>
+                    <label>Category Filter</label>
+                    <select id="ut-category" style="min-width:180px">
+                        <option value="">All Categories</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Name Filter</label>
+                    <input type="text" id="ut-filter" placeholder="e.g. Math, HashMap..." style="min-width:200px">
+                </div>
+                <button class="btn-primary" onclick="runBenchmarks()" id="ut-run-btn">Run Benchmarks</button>
+            </div>
+            <div id="ut-progress" style="display:none;padding:0.75rem;background:#fef3c7;border-radius:0.375rem;margin-bottom:0.75rem">
+                &#9203; Running benchmarks... this may take 30-60 seconds.
+            </div>
+            <div id="ut-results"></div>
+        </div>
+    </div>
+
+    <!-- ==================== Git Tools Tab ==================== -->
+    <div id="tab-gittools" class="hidden">
+        <div class="card">
+            <h2>Git Repository Manager</h2>
+            <p class="description">Scan, browse, tag, and manage your git repositories. View commits and create PRs from selected commits.</p>
+            <div style="display:flex;gap:0.75rem;align-items:end;flex-wrap:wrap;margin-bottom:0.75rem">
+                <div style="flex:1">
+                    <label>Scan Root Directory</label>
+                    <input type="text" id="gt-scan-root" value="/Users/chris" style="width:100%">
+                </div>
+                <button class="btn-primary" onclick="gtScan()">Scan for Repositories</button>
+                <div>
+                    <label>Filter by Tag</label>
+                    <select id="gt-tag-filter" onchange="gtFilterByTag()" style="min-width:120px">
+                        <option value="">All</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Sort</label>
+                    <select id="gt-sort" onchange="gtSort()" style="min-width:100px">
+                        <option value="name">Name</option>
+                        <option value="date">Last Commit</option>
+                    </select>
+                </div>
+            </div>
+            <div id="gt-status" style="margin-bottom:0.5rem"></div>
+            <div id="gt-repo-list" style="max-height:400px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:0.375rem">
+                <div style="padding:1rem;color:#94a3b8">Click "Scan for Repositories" to find git repos.</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Commits</h2>
+            <p class="description">Select a repository above, then browse its commits.</p>
+            <div style="display:flex;gap:0.75rem;align-items:end;flex-wrap:wrap;margin-bottom:0.75rem">
+                <div><label>Max</label><input type="text" id="gt-commit-max" value="20" style="width:50px"></div>
+                <div><label>Author</label><input type="text" id="gt-commit-author" placeholder="filter..." style="width:100px"></div>
+                <div><label>Message</label><input type="text" id="gt-commit-msg" placeholder="filter..." style="width:120px"></div>
+                <button class="btn-primary" onclick="gtLoadCommits()" id="gt-commit-btn" disabled>Load Commits</button>
+            </div>
+            <div id="gt-commit-list" style="max-height:400px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:0.375rem;padding:0.5rem">
+                <span style="color:#94a3b8">Select a repository first.</span>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<style>
+/* Unit Time table styles */
+.ut-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.ut-table th { background: #f1f5f9; padding: 0.5rem; text-align: left; cursor: pointer; user-select: none; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }
+.ut-table th:hover { background: #e2e8f0; }
+.ut-table td { padding: 0.4rem 0.5rem; border-bottom: 1px solid #f1f5f9; }
+.ut-table tr:hover { background: #f8fafc; }
+.ut-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.ut-fast { color: #059669; }
+.ut-medium { color: #d97706; }
+.ut-slow { color: #dc2626; }
+</style>
+
+<script>
+const API = '/api/jvs';
+
+// ─── Tab Navigation ───────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', function() {
+        const name = this.dataset.tab;
+        document.querySelectorAll('[id^="tab-"]').forEach(el => {
+            if (el.id !== 'tab-bar') el.classList.add('hidden');
+        });
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('tab-' + name).classList.remove('hidden');
+        this.classList.add('active');
+        if (name === 'types' && !document.getElementById('type-list').innerHTML) loadTypes();
+        if (name === 'translate') checkTranslateStatus();
+        if (name === 'search') { checkSearchStatus(); loadIndexedFields(); rtLoadStatus(); }
+        if (name === 'viewer') { viewerRefreshIndexList(); analyzerLoadOptions(); }
+        if (name === 'features') loadFeatureStatus();
+        if (name === 'unittime') loadUnitTimeStatus();
+        if (name === 'gittools') gtLoadStatus();
+    });
+});
+
+// ─── Sub-Tab Navigation (Search) ──────────────────────────────
+document.querySelectorAll('#search-sub-tabs .sub-tab').forEach(function(st) {
+    st.addEventListener('click', function() {
+        var name = this.dataset.subtab;
+        document.querySelectorAll('#search-sub-tabs .sub-tab').forEach(function(t) { t.classList.remove('active'); });
+        this.classList.add('active');
+        document.getElementById('subtab-simple-search').classList.toggle('hidden', name !== 'simple-search');
+        document.getElementById('subtab-object-retrieval').classList.toggle('hidden', name !== 'object-retrieval');
+        if (name === 'object-retrieval') rtLoadStatus();
+    });
+});
+
+// ─── API Helper ───────────────────────────────────────────────────
+async function api(method, path, body) {
+    const opts = { method, headers: {'Content-Type': 'application/json'} };
+    if (body !== undefined) opts.body = typeof body === 'string' ? body : JSON.stringify(body);
+    const res = await fetch(API + path, opts);
+    const text = await res.text();
+    if (!res.ok) {
+        let msg = text;
+        try { const j = JSON.parse(text); msg = j.message || j.error || text; } catch(e) {}
+        throw new Error('HTTP ' + res.status + ': ' + msg);
+    }
+    try { return JSON.parse(text); } catch(e) { return text; }
+}
+
+function pretty(obj) { return JSON.stringify(obj, null, 2); }
+
+function showError(elementId, message) {
+    const el = document.getElementById(elementId);
+    el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(message) + '</div>';
+}
+
+function showLoading(elementId, message) {
+    const el = document.getElementById(elementId);
+    el.innerHTML = '<span class="loading"></span> ' + escapeHtml(message || 'Loading...');
+}
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+// ─── Status ───────────────────────────────────────────────────────
+async function loadStatus() {
+    try {
+        const status = await api('GET', '/status');
+        const tsDot = document.getElementById('ts-dot');
+        const tsCount = document.getElementById('ts-count');
+        if (status.typeSystem) {
+            tsDot.className = 'status-dot green';
+            tsCount.textContent = status.types + ' types';
+        } else {
+            tsDot.className = 'status-dot red';
+            tsCount.textContent = 'unavailable';
+        }
+
+        const ollamaDot = document.getElementById('ollama-dot');
+        const ollamaStatus = document.getElementById('ollama-status');
+        if (status.translation && status.translation.available) {
+            ollamaDot.className = 'status-dot green';
+            ollamaStatus.textContent = status.translation.model || 'available';
+        } else {
+            ollamaDot.className = 'status-dot red';
+            ollamaStatus.textContent = 'offline';
+        }
+    } catch(e) {
+        document.getElementById('ts-dot').className = 'status-dot red';
+        document.getElementById('ts-count').textContent = 'error';
+    }
+}
+
+// ─── Type Explorer ────────────────────────────────────────────────
+async function loadTypes() {
+    const list = document.getElementById('type-list');
+    list.innerHTML = '<div style="padding:1rem;color:#94a3b8"><span class="loading"></span> Loading types...</div>';
+    try {
+        const types = await api('GET', '/types');
+        document.getElementById('type-total').textContent = '(' + types.length + ')';
+        if (types.length === 0) {
+            list.innerHTML = '<div style="padding:1rem;color:#64748b">No types found. Ensure config/types/ directory contains .json type definitions.</div>';
+        } else {
+            list.innerHTML = types.sort().map(t =>
+                '<div class="type-item" data-type="' + t + '">' + escapeHtml(t) + '</div>'
+            ).join('');
+            list.querySelectorAll('.type-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    list.querySelectorAll('.type-item').forEach(i => i.classList.remove('selected'));
+                    this.classList.add('selected');
+                    loadType(this.dataset.type);
+                });
+            });
+        }
+    } catch(e) {
+        list.innerHTML = '<div style="padding:1rem;color:#dc2626">Failed to load types: ' + escapeHtml(e.message) + '</div>';
+    }
+}
+
+async function loadType(name) {
+    const detail = document.getElementById('type-detail');
+    detail.innerHTML = '<span class="loading"></span> Loading ' + escapeHtml(name) + '...';
+    try {
+        const def = await api('GET', '/types/' + encodeURIComponent(name));
+        if (!def) { detail.innerHTML = '<span style="color:#dc2626">Type not found</span>'; return; }
+        renderTypeDefinition(detail, def);
+    } catch(e) {
+        detail.innerHTML = '<div class="status-msg status-err">' + escapeHtml(e.message) + '</div>';
+    }
+}
+
+function renderTypeDefinition(container, def) {
+    let html = '<div style="margin-bottom:1rem">';
+    html += '<strong style="font-size:1.15rem">' + escapeHtml(def.name) + '</strong> ';
+    if (def.superType) html += '<span class="badge badge-blue">extends ' + escapeHtml(def.superType) + '</span> ';
+    if (def.primitive) html += '<span class="badge badge-green">' + escapeHtml(def.primitiveType || 'primitive') + '</span> ';
+    html += '</div>';
+
+    if (def.fields && def.fields.length > 0) {
+        html += '<div style="margin-bottom:0.5rem"><strong>Fields</strong> <span class="badge badge-gray">' + def.fields.length + '</span></div>';
+
+        // Collect groups summary
+        const allGroups = new Set();
+        def.fields.forEach(f => {
+            if (f.groups) f.groups.forEach(g => allGroups.add(g.name || 'unnamed'));
+        });
+        if (allGroups.size > 0) {
+            html += '<div style="margin-bottom:0.75rem;font-size:0.8rem;color:#64748b">Groups: ';
+            allGroups.forEach(g => { html += '<span class="badge badge-purple" style="margin-right:0.25rem">' + escapeHtml(g) + '</span>'; });
+            html += '</div>';
+        }
+
+        def.fields.forEach(f => {
+            html += '<div class="field-card">';
+            html += '<span class="field-name">' + escapeHtml(f.name) + '</span> ';
+            html += '<span class="badge badge-blue">' + escapeHtml(f.type || '?') + '</span> ';
+            if (f.vector) html += '<span class="badge badge-purple">vector</span> ';
+            if (f.i18n) html += '<span class="badge badge-purple">i18n</span> ';
+            if (f.dynamic) html += '<span class="badge badge-amber">dynamic</span> ';
+
+            // Dynamic info
+            if (f.dynamicInfo) {
+                html += '<div class="dynamic-info">';
+                if (f.dynamicInfo.className) html += 'class: <code>' + escapeHtml(f.dynamicInfo.className) + '</code>';
+                if (f.dynamicInfo.dependsOn && f.dynamicInfo.dependsOn.length > 0) {
+                    html += ' depends on: ' + f.dynamicInfo.dependsOn.map(d => '<code>' + escapeHtml(d) + '</code>').join(', ');
+                }
+                html += '</div>';
+            }
+
+            // Groups
+            if (f.groups && f.groups.length > 0) {
+                f.groups.forEach(g => {
+                    html += '<div class="group-card">';
+                    html += '<strong>' + escapeHtml(g.name || 'unnamed') + '</strong>';
+                    if (g.method) html += ' method: <code>' + escapeHtml(g.method) + '</code>';
+                    if (g.tags && g.tags.length > 0) html += ' | tags: ' + g.tags.map(t => '<span class="badge badge-gray">' + escapeHtml(t) + '</span>').join(' ');
+                    html += '</div>';
+                });
+            }
+            html += '</div>';
+        });
+    } else if (def.primitive) {
+        html += '<div style="color:#64748b;font-style:italic">Primitive type - no fields</div>';
+    } else {
+        html += '<div style="color:#64748b;font-style:italic">No fields defined</div>';
+    }
+
+    // Raw JSON toggle
+    html += '<div style="margin-top:1rem"><button class="btn-secondary" onclick="this.nextElementSibling.classList.toggle(\'hidden\');this.textContent=this.textContent===\'Show Raw JSON\'?\'Hide Raw JSON\':\'Show Raw JSON\'" style="font-size:0.75rem;padding:0.25rem 0.5rem">Show Raw JSON</button>';
+    html += '<pre class="hidden" style="margin-top:0.5rem;font-size:0.75rem;background:#f1f5f9;padding:0.5rem;border-radius:0.25rem;overflow:auto;max-height:300px">' + escapeHtml(pretty(def)) + '</pre></div>';
+
+    container.innerHTML = html;
+}
+
+// ─── Enrich & Validate ────────────────────────────────────────────
+async function enrichDoc() {
+    const inputEl = document.getElementById('enrich-input');
+    const resultEl = document.getElementById('enrich-result');
+    let json;
+    try { json = inputEl.value; JSON.parse(json); } catch(e) { showError('enrich-result', 'Invalid JSON: ' + e.message); return; }
+
+    // Collect selected tags
+    const tags = [];
+    ['basic','segmented','pos','ner','hash','parsed','answers'].forEach(t => {
+        if (document.getElementById('tag-' + t).checked) tags.push(t);
+    });
+
+    showLoading('enrich-result', 'Enriching document...');
+    try {
+        const result = await api('POST', '/enrich', { json: json, tags: tags.join(',') });
+        if (result.error) {
+            resultEl.innerHTML = '<div class="status-msg status-err">' + escapeHtml(result.error) + '</div>';
+            if (result.original) {
+                resultEl.innerHTML += '<label style="margin-top:0.5rem">Original:</label><pre style="font-size:0.75rem">' + escapeHtml(pretty(result.original)) + '</pre>';
+            }
+            return;
+        }
+        let html = '<div class="status-msg status-ok">Enriched successfully (type: ' + escapeHtml(result.typeName || '?') + ', tags: ' + escapeHtml((result.tags || []).join(', ')) + ')</div>';
+        if (result.enriched) {
+            html += '<label>Enriched Document: <button class="btn-secondary" style="font-size:0.7rem;padding:0.15rem 0.4rem;margin-left:0.5rem" onclick="toggleAllJsonTree(this,true)">Expand All</button> <button class="btn-secondary" style="font-size:0.7rem;padding:0.15rem 0.4rem" onclick="toggleAllJsonTree(this,false)">Collapse All</button></label>';
+            html += '<div class="json-tree" style="margin-top:0.25rem">' + buildJsonTree(result.enriched) + '</div>';
+        }
+        resultEl.innerHTML = html;
+    } catch(e) {
+        showError('enrich-result', e.message);
+    }
+}
+
+function highlightDynamicFields(jsonStr) {
+    const dynamicKeys = ['segmented', 'segmented_ner', 'segmented_span', 'segmented_parsed', 'segmented_answers', 'pos', 'clean', 'hash', 'normhash', 'stems', 'spans', 'sentences', 'parsed', 'answers', 'ner', 'dependency'];
+    let escaped = escapeHtml(jsonStr);
+    dynamicKeys.forEach(key => {
+        const re = new RegExp('(&quot;' + key + '&quot;)', 'g');
+        escaped = escaped.replace(re, '<span class="json-highlight">$1</span>');
+    });
+    return escaped;
+}
+
+const ENRICHED_KEYS = new Set(['segmented','segmented_ner','segmented_span','segmented_parsed','segmented_answers','pos','clean','hash','normhash','stems','spans','sentences','parsed','answers','ner','dependency']);
+
+function buildJsonTree(obj, key, depth) {
+    depth = depth || 0;
+    const isEnriched = key && ENRICHED_KEYS.has(key);
+    const keyHtml = key != null ? '<span class="jt-key' + (isEnriched ? ' jt-enriched' : '') + '">"' + escapeHtml(key) + '"</span>: ' : '';
+
+    if (obj === null) return '<li>' + keyHtml + '<span class="jt-null">null</span></li>';
+    if (typeof obj === 'boolean') return '<li>' + keyHtml + '<span class="jt-bool">' + obj + '</span></li>';
+    if (typeof obj === 'number') return '<li>' + keyHtml + '<span class="jt-number">' + obj + '</span></li>';
+    if (typeof obj === 'string') return '<li>' + keyHtml + '<span class="jt-string">"' + escapeHtml(obj) + '"</span></li>';
+
+    const isArray = Array.isArray(obj);
+    const entries = isArray ? obj.map((v, i) => [i, v]) : Object.entries(obj);
+    const open = isArray ? '[' : '{';
+    const close = isArray ? ']' : '}';
+    const count = entries.length;
+
+    if (count === 0) return '<li>' + keyHtml + '<span class="jt-bracket">' + open + close + '</span></li>';
+
+    const collapsed = depth > 1 ? ' jt-collapsed' : '';
+    const arrow = depth > 1 ? '\u25b6' : '\u25bc';
+    let summary = count + (isArray ? ' items' : ' keys');
+
+    let html = '<li class="' + collapsed + '">';
+    html += '<span class="jt-toggle" onclick="this.parentElement.classList.toggle(\'jt-collapsed\');this.textContent=this.textContent===\'\\u25b6\'?\'\\u25bc\':\'\\u25b6\'">' + arrow + '</span> ';
+    html += keyHtml + '<span class="jt-bracket">' + open + '</span>';
+    html += '<span class="jt-summary"> ' + summary + ' </span>';
+    html += '<ul>';
+    for (const [k, v] of entries) {
+        html += buildJsonTree(v, isArray ? null : k, depth + 1);
+    }
+    html += '</ul>';
+    html += '<span class="jt-bracket">' + close + '</span>';
+    html += '</li>';
+    return '<ul>' + html + '</ul>';
+}
+
+function toggleAllJsonTree(btn, expand) {
+    const tree = btn.closest('.card').querySelector('.json-tree');
+    if (!tree) return;
+    tree.querySelectorAll('li').forEach(li => {
+        if (li.querySelector('ul')) {
+            if (expand) li.classList.remove('jt-collapsed');
+            else li.classList.add('jt-collapsed');
+            const toggle = li.querySelector('.jt-toggle');
+            if (toggle) toggle.textContent = expand ? '\u25bc' : '\u25b6';
+        }
+    });
+}
+
+// ─── Propaccess Path Navigator ────────────────────────────────────
+
+async function propaccess() {
+    const inputEl = document.getElementById('pa-input');
+    const pathEl = document.getElementById('pa-path');
+    const resultEl = document.getElementById('pa-result');
+    const path = pathEl.value.trim();
+    if (!path) { showError('pa-result', 'Enter a path'); return; }
+    let parsed;
+    try { parsed = JSON.parse(inputEl.value); } catch(e) { showError('pa-result', 'Invalid JSON: ' + e.message); return; }
+    try {
+        const result = await api('POST', '/propaccess', { json: parsed, path: path });
+        if (result.error) {
+            resultEl.innerHTML = '<div class="status-msg status-err">' + escapeHtml(result.error) + '</div>';
+            return;
+        }
+        let html = '<div style="margin-bottom:0.75rem">';
+        html += '<span class="badge badge-blue">path: ' + escapeHtml(result.path) + '</span> ';
+        if (result.typeName) html += '<span class="badge badge-purple">type: ' + escapeHtml(result.typeName) + '</span> ';
+        if (result.nodeType) html += '<span class="badge badge-gray">' + escapeHtml(result.nodeType) + '</span> ';
+        html += result.found ? '<span class="badge badge-green">found</span>' : '<span class="badge badge-red">not found</span>';
+        html += '</div>';
+        if (result.found && result.value !== null) {
+            if (typeof result.value === 'object') {
+                html += '<div class="json-tree">' + buildJsonTree(result.value) + '</div>';
+            } else {
+                html += '<div style="font-size:1.1rem;font-weight:600;padding:0.5rem;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:0.375rem">' + escapeHtml(String(result.value)) + '</div>';
+            }
+        } else if (!result.found) {
+            html += '<div style="color:#94a3b8">No value at this path.</div>';
+        }
+        resultEl.innerHTML = html;
+    } catch(e) {
+        showError('pa-result', e.message);
+    }
+}
+
+// Allow Enter key for propaccess
+document.addEventListener('DOMContentLoaded', function() {
+    const paInput = document.getElementById('pa-path');
+    if (paInput) paInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') propaccess(); });
+});
+
+async function validateDoc() {
+    const inputEl = document.getElementById('enrich-input');
+    const resultEl = document.getElementById('enrich-result');
+    let parsed;
+    try { parsed = JSON.parse(inputEl.value); } catch(e) { showError('enrich-result', 'Invalid JSON: ' + e.message); return; }
+
+    showLoading('enrich-result', 'Validating document...');
+    try {
+        const result = await api('POST', '/validate', parsed);
+        let html = '';
+        if (result.valid) {
+            html += '<div class="status-msg status-ok">Valid';
+            if (result.typeName) html += ' (type: ' + escapeHtml(result.typeName) + ')';
+            html += '</div>';
+        } else {
+            html += '<div class="status-msg status-err">Validation failed';
+            if (result.typeName) html += ' (type: ' + escapeHtml(result.typeName) + ')';
+            if (result.error) html += ' - ' + escapeHtml(result.error);
+            html += '</div>';
+        }
+        if (result.violations && result.violations.length > 0) {
+            html += '<div style="margin-top:0.75rem"><strong>Violations (' + result.violations.length + '):</strong></div>';
+            result.violations.forEach(v => {
+                const badgeClass = v.level === 'ERROR' ? 'badge-red' : v.level === 'WARNING' ? 'badge-amber' : 'badge-blue';
+                html += '<div style="padding:0.35rem 0;font-size:0.8rem;border-bottom:1px solid #f1f5f9">';
+                html += '<span class="badge ' + badgeClass + '">' + escapeHtml(v.level) + '</span> ';
+                html += '<strong>' + escapeHtml(v.path) + '</strong>: ' + escapeHtml(v.message);
+                html += '</div>';
+            });
+        }
+        resultEl.innerHTML = html;
+    } catch(e) {
+        showError('enrich-result', e.message);
+    }
+}
+
+// ─── NLP Stemming ─────────────────────────────────────────────────
+
+// ─── Translation ──────────────────────────────────────────────────
+async function checkTranslateStatus() {
+    const bar = document.getElementById('translate-status-bar');
+    bar.style.display = 'block';
+    bar.className = 'status-msg status-info';
+    bar.textContent = 'Checking Ollama status...';
+    try {
+        const status = await api('GET', '/translate/status');
+        if (status.available) {
+            bar.className = 'status-msg status-ok';
+            bar.textContent = 'Ollama is available (model: ' + (status.model || 'unknown') + ', url: ' + (status.url || 'unknown') + ')';
+        } else {
+            bar.className = 'status-msg status-warn';
+            bar.textContent = 'Ollama is not available. ' + (status.error || 'Start Ollama locally for translation support.');
+        }
+    } catch(e) {
+        bar.className = 'status-msg status-err';
+        bar.textContent = 'Failed to check Ollama status: ' + e.message;
+    }
+}
+
+async function translateDoc() {
+    const resultEl = document.getElementById('translate-result');
+    let json;
+    try { json = document.getElementById('translate-input').value; JSON.parse(json); } catch(e) { showError('translate-result', 'Invalid JSON: ' + e.message); return; }
+
+    const mlsFields = document.getElementById('translate-fields').value.split(',').map(s => s.trim()).filter(Boolean);
+    const sourceLang = document.getElementById('translate-source').value;
+    const targetLangs = [];
+    document.querySelectorAll('.target-lang:checked').forEach(cb => targetLangs.push(cb.value));
+
+    if (mlsFields.length === 0) { showError('translate-result', 'Please specify at least one MLS field path.'); return; }
+    if (targetLangs.length === 0) { showError('translate-result', 'Please select at least one target language.'); return; }
+
+    showLoading('translate-result', 'Translating (this may take a moment)...');
+    try {
+        const result = await api('POST', '/translate', {
+            json: json,
+            mlsFields: mlsFields,
+            sourceLanguage: sourceLang,
+            targetLanguages: targetLangs
+        });
+        if (result.error || result.success === false) {
+            resultEl.innerHTML = '<div class="status-msg status-err">' + escapeHtml(result.error || 'Translation failed') + '</div>';
+            return;
+        }
+        let html = '<div class="status-msg status-ok">Translation complete (' + (result.translationTimeMs || '?') + 'ms)</div>';
+        if (result.fieldTranslations) {
+            result.fieldTranslations.forEach(ft => {
+                html += '<div style="margin-top:0.5rem"><strong>' + escapeHtml(ft.fieldPath) + '</strong>';
+                if (ft.error) {
+                    html += ' <span class="badge badge-red">error</span> ' + escapeHtml(ft.error);
+                } else if (ft.translations) {
+                    Object.entries(ft.translations).forEach(([lang, text]) => {
+                        html += '<div style="padding:0.25rem 0.5rem;margin:0.25rem 0;background:#f1f5f9;border-radius:0.25rem;font-size:0.8rem">';
+                        html += '<span class="badge badge-blue">' + escapeHtml(lang) + '</span> ' + escapeHtml(text);
+                        html += '</div>';
+                    });
+                }
+                html += '</div>';
+            });
+        }
+        if (result.translated) {
+            html += '<label style="margin-top:0.75rem">Full Translated Document:</label>';
+            html += '<pre style="font-size:0.75rem;margin-top:0.25rem">' + escapeHtml(pretty(result.translated)) + '</pre>';
+        }
+        resultEl.innerHTML = html;
+    } catch(e) {
+        showError('translate-result', e.message);
+    }
+}
+
+// ─── Documents ────────────────────────────────────────────────────
+async function createDoc() {
+    const json = document.getElementById('doc-input').value;
+    try { JSON.parse(json); } catch(e) { showError('doc-result', 'Invalid JSON: ' + e.message); return; }
+    showLoading('doc-result', 'Creating document...');
+    try {
+        const result = await api('POST', '/documents', json);
+        document.getElementById('doc-result').textContent = pretty(result);
+    } catch(e) {
+        showError('doc-result', e.message);
+    }
+}
+
+async function mergeDocs() {
+    const baseStr = document.getElementById('merge-base').value;
+    const overlayStr = document.getElementById('merge-overlay').value;
+    try { JSON.parse(baseStr); } catch(e) { showError('merge-result', 'Invalid base JSON: ' + e.message); return; }
+    try { JSON.parse(overlayStr); } catch(e) { showError('merge-result', 'Invalid overlay JSON: ' + e.message); return; }
+    showLoading('merge-result', 'Merging...');
+    try {
+        const result = await api('POST', '/merge', {base: JSON.parse(baseStr), overlay: JSON.parse(overlayStr)});
+        document.getElementById('merge-result').textContent = pretty(result);
+    } catch(e) {
+        showError('merge-result', e.message);
+    }
+}
+
+// ─── NDJSON Pipeline ──────────────────────────────────────────────
+const PIPELINE_API = '/api/jvs/pipeline';
+
+async function loadDatasetPreview() {
+    const info = document.getElementById('pipeline-dataset-info');
+    const preview = document.getElementById('pipeline-dataset-preview');
+    info.textContent = 'Loading...';
+    preview.style.display = 'block';
+    preview.innerHTML = '<span class="loading"></span> Loading dataset...';
+    try {
+        const docs = await api('GET', '/pipeline/dataset');
+        info.textContent = docs.length + ' documents in dataset';
+        let html = '';
+        docs.forEach((doc, i) => {
+            const id = doc.id ? (doc.id.domain + '/' + doc.id.did) : ('doc-' + i);
+            const title = doc.title && doc.title.mls && doc.title.mls[0] ? doc.title.mls[0].text : '(no title)';
+            const dept = doc.department || '';
+            html += '<div style="padding:0.35rem 0;border-bottom:1px solid #f1f5f9;font-size:0.8rem">';
+            html += '<span class="badge badge-blue" style="margin-right:0.5rem">' + escapeHtml(id) + '</span>';
+            if (dept) html += '<span class="badge badge-purple" style="margin-right:0.5rem">' + escapeHtml(dept) + '</span>';
+            const firstLine = title.indexOf('\n') > 0 ? title.substring(0, title.indexOf('\n')) : title;
+            html += escapeHtml(firstLine.substring(0, 100));
+            html += '</div>';
+        });
+        preview.innerHTML = html;
+    } catch(e) {
+        info.textContent = 'Error loading dataset';
+        preview.innerHTML = '<div class="status-msg status-err">' + escapeHtml(e.message) + '</div>';
+    }
+}
+
+async function runPipeline() {
+    const mode = document.getElementById('pipeline-mode').value;
+    const type = document.getElementById('pipeline-type').value;
+    const resultEl = document.getElementById('pipeline-result');
+    const statusEl = document.getElementById('pipeline-status');
+    const btn = document.getElementById('pipeline-run-btn');
+
+    const tags = [];
+    document.querySelectorAll('.pipeline-tag:checked').forEach(cb => tags.push(cb.value));
+    const sourceLang = document.getElementById('pipeline-source-lang').value;
+    const targetLangs = [];
+    document.querySelectorAll('.pipeline-target-lang:checked').forEach(cb => targetLangs.push(cb.value));
+
+    const body = { tags: tags.join(','), sourceLanguage: sourceLang, targetLanguages: targetLangs };
+
+    let endpoint;
+    if (mode === 'iterator-to-stream') {
+        endpoint = '/pipeline/bridge/iterator-to-stream';
+    } else if (mode === 'stream-to-sink') {
+        endpoint = '/pipeline/bridge/stream-to-sink';
+    } else {
+        const modeSegment = mode === 'iterator' ? 'iterator' : 'stream';
+        endpoint = '/pipeline/' + type + '/' + modeSegment;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Running...';
+    statusEl.style.display = 'block';
+    statusEl.className = 'status-msg status-info';
+    statusEl.innerHTML = '<span class="loading"></span> Running ' + type + ' pipeline (' + mode + ' mode)... This may take a moment.';
+    resultEl.innerHTML = '';
+
+    try {
+        const result = await api('POST', endpoint, body);
+        if (result.error) {
+            statusEl.className = 'status-msg status-err';
+            statusEl.textContent = 'Pipeline error: ' + result.error;
+            return;
+        }
+
+        let statusHtml = 'Pipeline complete: <strong>' + escapeHtml(result.pipeline || type) + '</strong>';
+        statusHtml += ' | Mode: <strong>' + escapeHtml(result.mode || mode) + '</strong>';
+        statusHtml += ' | Documents: <strong>' + (result.documentCount || 0) + '</strong>';
+        statusHtml += ' | Time: <strong>' + (result.timeMs || '?') + 'ms</strong>';
+        if (result.outputFile) statusHtml += ' | Output: <code>' + escapeHtml(result.outputFile) + '</code>';
+        if (result.description) statusHtml += '<br><em>' + escapeHtml(result.description) + '</em>';
+        statusEl.className = 'status-msg status-ok';
+        statusEl.innerHTML = statusHtml;
+
+        if (result.documents && result.documents.length > 0) {
+            let html = '<div style="margin-bottom:0.5rem"><strong>Processed Documents (' + result.documents.length + '):</strong>';
+            html += ' <button class="btn-secondary" style="font-size:0.7rem;padding:0.15rem 0.4rem;margin-left:0.5rem" onclick="toggleAllPipelineDocs(true)">Expand All</button>';
+            html += ' <button class="btn-secondary" style="font-size:0.7rem;padding:0.15rem 0.4rem" onclick="toggleAllPipelineDocs(false)">Collapse All</button>';
+            html += '</div>';
+
+            result.documents.forEach((doc, i) => {
+                const id = doc.id ? (doc.id.domain + '/' + doc.id.did) : ('doc-' + i);
+                const titleMls = doc.title && doc.title.mls && doc.title.mls[0] ? doc.title.mls[0].text.split('\n')[0] : '(no title)';
+                html += '<div class="pipeline-doc-entry" style="margin-bottom:0.5rem;border:1px solid #e2e8f0;border-radius:0.375rem;overflow:hidden">';
+                html += '<div style="padding:0.5rem 0.75rem;background:#f8fafc;cursor:pointer;display:flex;align-items:center;gap:0.5rem" onclick="this.nextElementSibling.classList.toggle(\'hidden\')">';
+                html += '<span style="color:#94a3b8">&#9654;</span> ';
+                html += '<span class="badge badge-blue">' + escapeHtml(id) + '</span> ';
+                html += '<span style="font-size:0.8rem">' + escapeHtml(titleMls.substring(0, 80)) + '</span>';
+                if (doc.title && doc.title.mls && doc.title.mls.length > 1) {
+                    html += ' <span class="badge badge-green">' + doc.title.mls.length + ' langs</span>';
+                }
+                html += '</div>';
+                html += '<div class="hidden" style="padding:0.5rem 0.75rem;max-height:400px;overflow:auto">';
+                html += '<div class="json-tree">' + buildJsonTree(doc) + '</div>';
+                html += '</div>';
+                html += '</div>';
+            });
+            resultEl.innerHTML = html;
+        } else {
+            resultEl.innerHTML = '<pre>' + escapeHtml(pretty(result)) + '</pre>';
+        }
+    } catch(e) {
+        statusEl.className = 'status-msg status-err';
+        statusEl.textContent = 'Error: ' + e.message;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Run Pipeline';
+    }
+}
+
+function toggleAllPipelineDocs(expand) {
+    document.querySelectorAll('.pipeline-doc-entry').forEach(entry => {
+        const content = entry.querySelector('div:nth-child(2)');
+        if (content) {
+            if (expand) content.classList.remove('hidden');
+            else content.classList.add('hidden');
+        }
+    });
+}
+
+// ─── Search ───────────────────────────────────────────────────────
+
+async function loadIndexedFields() {
+    const typeName = document.getElementById('qb-type').value;
+    const lang = document.getElementById('search-lang').value;
+    const container = document.getElementById('qb-fields');
+    container.innerHTML = '<div style="color:#94a3b8;padding:0.5rem"><span class="loading"></span> Loading...</div>';
+    try {
+        const fields = await api('GET', '/search/fields/' + encodeURIComponent(typeName) + '?lang=' + lang);
+        if (!fields || fields.length === 0) {
+            container.innerHTML = '<div style="color:#94a3b8;padding:0.5rem">No indexed fields found for this type.</div>';
+            return;
+        }
+        let html = '<table style="width:100%;border-collapse:collapse">';
+        html += '<tr style="background:#f1f5f9;font-weight:600;font-size:0.75rem"><td style="padding:0.35rem 0.5rem">Field Path (click to use)</td><td style="padding:0.35rem 0.5rem">Method</td><td style="padding:0.35rem 0.5rem">Physical Name</td><td style="padding:0.35rem 0.5rem">Flags</td></tr>';
+        fields.forEach(f => {
+            html += '<tr style="border-top:1px solid #f1f5f9;cursor:pointer" onclick="insertFieldInQuery(\'' + escapeHtml(f.fieldPath) + '\')" title="Click to insert into query">';
+            html += '<td style="padding:0.35rem 0.5rem;color:#1d4ed8;font-weight:500">' + escapeHtml(f.fieldPath) + '</td>';
+            html += '<td style="padding:0.35rem 0.5rem"><span class="badge badge-blue">' + escapeHtml(f.method) + '</span></td>';
+            html += '<td style="padding:0.35rem 0.5rem;font-family:monospace;font-size:0.75rem;color:#64748b">' + escapeHtml(f.physicalName) + '</td>';
+            html += '<td style="padding:0.35rem 0.5rem">';
+            if (f.i18n) html += '<span class="badge badge-green" style="margin-right:0.2rem">i18n</span>';
+            if (f.tokenized) html += '<span class="badge badge-purple" style="margin-right:0.2rem">tokenized</span>';
+            if (f.dynamic) html += '<span class="badge badge-amber" style="margin-right:0.2rem">dynamic</span>';
+            html += '</td></tr>';
+        });
+        html += '</table>';
+        container.innerHTML = html;
+    } catch(e) {
+        container.innerHTML = '<div class="status-msg status-err">' + escapeHtml(e.message) + '</div>';
+    }
+}
+
+function insertFieldInQuery(fieldPath) {
+    const input = document.getElementById('search-query');
+    const current = input.value.trim();
+    if (current === '*:*' || current === '') {
+        input.value = fieldPath + ':';
+    } else {
+        input.value = current + ' AND ' + fieldPath + ':';
+    }
+    input.focus();
+}
+
+async function populateTypeSelector() {
+    try {
+        const types = await api('GET', '/types');
+        const select = document.getElementById('qb-type');
+        select.innerHTML = '';
+        types.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t;
+            opt.textContent = t;
+            if (t === 'demo_document') opt.selected = true;
+            select.appendChild(opt);
+        });
+    } catch(e) { /* keep default */ }
+}
+
+async function checkSearchStatus() {
+    try {
+        const status = await api('GET', '/search/status');
+        const dot = document.getElementById('search-dot');
+        const label = document.getElementById('search-status');
+        if (status.indexed) {
+            dot.className = 'status-dot green';
+            label.textContent = 'ready';
+        } else {
+            dot.className = 'status-dot yellow';
+            label.textContent = 'not indexed';
+        }
+    } catch(e) {
+        document.getElementById('search-dot').className = 'status-dot red';
+        document.getElementById('search-status').textContent = 'error';
+    }
+}
+
+async function indexDataset() {
+    const btn = document.getElementById('index-btn');
+    const statusEl = document.getElementById('index-status');
+    btn.disabled = true;
+    btn.textContent = 'Indexing...';
+    statusEl.style.display = 'block';
+    statusEl.className = 'status-msg status-info';
+    const enrichTags = [];
+    document.querySelectorAll('.enrich-tag:checked').forEach(cb => enrichTags.push(cb.value));
+    const tagsStr = enrichTags.join(',');
+    const targetLangs = [];
+    document.querySelectorAll('.target-lang:checked').forEach(cb => targetLangs.push(cb.value));
+    const langsStr = targetLangs.join(',');
+
+    let progressMsg = '';
+    if (langsStr && tagsStr) progressMsg = 'Translating (' + langsStr + '), enriching (' + tagsStr + ') and indexing...';
+    else if (langsStr) progressMsg = 'Translating (' + langsStr + ') and indexing...';
+    else if (tagsStr) progressMsg = 'Enriching (' + tagsStr + ') and indexing...';
+    else progressMsg = 'Indexing raw dataset...';
+    statusEl.innerHTML = '<span class="loading"></span> ' + progressMsg;
+
+    try {
+        const body = {};
+        if (tagsStr) body.enrichTags = tagsStr;
+        if (langsStr) body.targetLangs = langsStr;
+        const result = await api('POST', '/search/index', body);
+        if (result.error) {
+            statusEl.className = 'status-msg status-err';
+            statusEl.textContent = 'Error: ' + result.error;
+            return;
+        }
+        let html = 'Indexed <strong>' + result.documentCount + '</strong> documents';
+        html += ' in <strong>' + result.indexTimeMs + 'ms</strong>';
+        if (result.typeAware) html += ' | Type: <span class="badge badge-blue">' + escapeHtml(result.typeName) + '</span>';
+        else html += ' | <span class="badge badge-amber">no type mapping</span>';
+        if (result.translated) html += ' | Translated: <span class="badge badge-amber">' + escapeHtml(result.targetLangs) + ' (' + result.translatedCount + ' docs)</span>';
+        if (result.enriched) html += ' | Enriched: <span class="badge badge-green">' + escapeHtml(result.enrichTags) + '</span>';
+        if (result.storedInKV > 0) html += ' | KVStore: <span class="badge badge-purple">' + result.storedInKV + ' docs</span>';
+        statusEl.className = 'status-msg status-ok';
+        statusEl.innerHTML = html;
+        checkSearchStatus();
+    } catch(e) {
+        statusEl.className = 'status-msg status-err';
+        statusEl.textContent = 'Error: ' + e.message;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Translate \u2192 Enrich \u2192 Index Dataset';
+    }
+}
+
+async function searchDocuments() {
+    const query = document.getElementById('search-query').value.trim();
+    if (!query) return;
+
+    const offset = parseInt(document.getElementById('search-offset').value) || 0;
+    const limit = parseInt(document.getElementById('search-limit').value) || 10;
+    const facets = [];
+    document.querySelectorAll('.search-facet:checked').forEach(cb => facets.push(cb.value));
+
+    const btn = document.getElementById('search-btn');
+    const statusEl = document.getElementById('search-result-status');
+    const resultsEl = document.getElementById('search-results');
+    const facetsEl = document.getElementById('search-facets');
+
+    btn.disabled = true;
+    btn.textContent = 'Searching...';
+    statusEl.style.display = 'block';
+    statusEl.className = 'status-msg status-info';
+    statusEl.innerHTML = '<span class="loading"></span> Searching...';
+    facetsEl.innerHTML = '';
+
+    try {
+        const lang = document.getElementById('search-lang').value;
+        const useKvStore = document.getElementById('use-kvstore').checked;
+        let url = '/search?q=' + encodeURIComponent(query) + '&offset=' + offset + '&limit=' + limit + '&lang=' + lang;
+        if (useKvStore) url += '&useKvStore=true';
+        facets.forEach(f => url += '&facets=' + encodeURIComponent(f));
+        const result = await api('GET', url);
+
+        if (result.error) {
+            statusEl.className = 'status-msg status-err';
+            statusEl.textContent = result.error;
+            resultsEl.innerHTML = '';
+            return;
+        }
+
+        // Source badge
+        const sourceBadge = result.source === 'kvstore'
+            ? '<span class="badge badge-purple">Source: KV Store</span>'
+            : '<span class="badge badge-blue">Source: Index</span>';
+
+        // Status bar
+        statusEl.className = 'status-msg status-ok';
+        statusEl.innerHTML = 'Found <strong>' + result.totalHits + '</strong> documents'
+            + ' in <strong>' + result.searchTimeMs + 'ms</strong>'
+            + ' | Query: <code>' + escapeHtml(result.query) + '</code>'
+            + ' | Showing ' + result.offset + '-' + (result.offset + (result.documents ? result.documents.length : 0))
+            + ' | ' + sourceBadge;
+
+        // Facets
+        if (result.facets) {
+            let fhtml = '<div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">';
+            for (const [dim, facet] of Object.entries(result.facets)) {
+                fhtml += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:0.375rem;padding:0.5rem 0.75rem">';
+                fhtml += '<div style="font-weight:600;font-size:0.8rem;margin-bottom:0.35rem">' + escapeHtml(dim) + '</div>';
+                if (facet.values && facet.values.length > 0) {
+                    facet.values.forEach(fv => {
+                        fhtml += '<span class="badge badge-purple" style="margin:0.1rem">' + escapeHtml(fv.value) + ' (' + fv.count + ')</span> ';
+                    });
+                } else {
+                    fhtml += '<span style="font-size:0.75rem;color:#94a3b8">no facet data</span>';
+                }
+                fhtml += '</div>';
+            }
+            fhtml += '</div>';
+            facetsEl.innerHTML = fhtml;
+        }
+
+        // Documents
+        if (result.documents && result.documents.length > 0) {
+            let html = '<div style="margin-bottom:0.5rem"><strong>Results (' + result.documents.length + '):</strong>';
+            html += ' <button class="btn-secondary" style="font-size:0.7rem;padding:0.15rem 0.4rem;margin-left:0.5rem" onclick="toggleAllSearchDocs(true)">Expand All</button>';
+            html += ' <button class="btn-secondary" style="font-size:0.7rem;padding:0.15rem 0.4rem" onclick="toggleAllSearchDocs(false)">Collapse All</button>';
+            html += '</div>';
+
+            result.documents.forEach((hit, i) => {
+                // Unwrap: hit is {_score, document} or a flat doc (backward compat)
+                const doc = hit.document || hit;
+                const score = hit._score != null ? Number(hit._score).toFixed(4) : (doc._score != null ? Number(doc._score).toFixed(4) : '');
+                const id = doc.id ? (doc.id.domain ? (doc.id.domain + '/' + doc.id.did) : (doc.id.id || 'doc-' + i)) : ('doc-' + i);
+                let title = '(no title)';
+                if (doc.title && doc.title.mls && doc.title.mls[0]) {
+                    title = doc.title.mls[0].text.split('\n')[0];
+                }
+                // Language badges
+                let langBadges = '';
+                if (doc.title && doc.title.mls && doc.title.mls.length > 1) {
+                    doc.title.mls.forEach(function(e) {
+                        langBadges += '<span style="padding:0.05rem 0.25rem;background:#dbeafe;color:#1e40af;border-radius:0.15rem;font-size:0.65rem;margin-left:0.15rem">' + escapeHtml(e.lang) + '</span>';
+                    });
+                }
+                // NER badge
+                let nerBadge = '';
+                if (doc.title && doc.title.mls && doc.title.mls[0] && doc.title.mls[0].segmented_ner) {
+                    nerBadge = ' <span style="padding:0.05rem 0.25rem;background:#dcfce7;color:#166534;border-radius:0.15rem;font-size:0.65rem">NER</span>';
+                }
+                html += '<div class="search-doc-entry" style="margin-bottom:0.5rem;border:1px solid #e2e8f0;border-radius:0.375rem;overflow:hidden">';
+                html += '<div style="padding:0.5rem 0.75rem;background:#f8fafc;cursor:pointer;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap" onclick="this.nextElementSibling.classList.toggle(\'hidden\')">';
+                html += '<span style="color:#94a3b8">&#9654;</span> ';
+                if (score) html += '<span class="badge badge-green">' + score + '</span> ';
+                html += '<span class="badge badge-blue">' + escapeHtml(id) + '</span> ';
+                html += '<span style="font-size:0.8rem;flex:1">' + escapeHtml(title.substring(0, 100)) + '</span>';
+                if (doc.department) html += '<span class="badge badge-purple">' + escapeHtml(doc.department) + '</span>';
+                html += langBadges + nerBadge;
+                html += '</div>';
+                html += '<div class="hidden" style="padding:0.5rem 0.75rem;max-height:400px;overflow:auto">';
+                html += '<div class="json-tree">' + buildJsonTree(doc) + '</div>';
+                html += '</div>';
+                html += '</div>';
+            });
+            resultsEl.innerHTML = html;
+        } else {
+            resultsEl.innerHTML = '<div style="color:#94a3b8;padding:1rem">No documents found.</div>';
+        }
+    } catch(e) {
+        statusEl.className = 'status-msg status-err';
+        statusEl.textContent = 'Error: ' + e.message;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Search';
+    }
+}
+
+function toggleAllSearchDocs(expand) {
+    document.querySelectorAll('.search-doc-entry').forEach(entry => {
+        const content = entry.querySelector('div:nth-child(2)');
+        if (content) {
+            if (expand) content.classList.remove('hidden');
+            else content.classList.add('hidden');
+        }
+    });
+}
+
+// Allow Enter key to trigger search
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('search-query');
+    if (searchInput) {
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') searchDocuments();
+        });
+    }
+    // Toggle KV badge indicator
+    const kvCheckbox = document.getElementById('use-kvstore');
+    if (kvCheckbox) {
+        kvCheckbox.addEventListener('change', function() {
+            document.getElementById('kvstore-badge').style.display = this.checked ? 'inline' : 'none';
+        });
+        // Initialize badge visibility based on default checked state
+        document.getElementById('kvstore-badge').style.display = kvCheckbox.checked ? 'inline' : 'none';
+    }
+});
+
+// ─── Lucene Viewer ────────────────────────────────────────────────
+
+function viewerApiPath(endpoint) {
+    var sel = document.getElementById('viewer-index-select');
+    var idx = sel ? sel.value : '';
+    if (idx) {
+        // Retrieval index — use /api/retrieval/viewer/{indexName}/...
+        return '/retrieval/viewer/' + encodeURIComponent(idx) + '/' + endpoint;
+    }
+    // Simple search index — use /api/jvs/viewer/...
+    return '/viewer/' + endpoint;
+}
+
+async function viewerFetch(endpoint) {
+    var path = viewerApiPath(endpoint);
+    if (path.startsWith('/retrieval/')) {
+        // Direct fetch (not through api() helper which prepends /api/jvs)
+        var res = await fetch('/api' + path);
+        return await res.json();
+    }
+    return await api('GET', path);
+}
+
+async function viewerRefreshIndexList() {
+    var sel = document.getElementById('viewer-index-select');
+    var current = sel.value;
+    sel.innerHTML = '<option value="">Simple Search (documents)</option>';
+    try {
+        var indexes = await fetch('/api/retrieval/indexes').then(function(r) { return r.json(); });
+        indexes.forEach(function(idx) {
+            var opt = document.createElement('option');
+            opt.value = idx.name;
+            opt.textContent = idx.name + ' (' + idx.documentCount + ' docs)';
+            sel.appendChild(opt);
+        });
+        if (current) sel.value = current;
+    } catch(e) {}
+}
+
+function viewerIndexChanged() {
+    document.getElementById('viewer-result').innerHTML = 'Select an action above to inspect this index.';
+}
+
+async function viewerStats() {
+    const el = document.getElementById('viewer-result');
+    el.innerHTML = '<span class="loading"></span> Loading stats...';
+    try {
+        const stats = await viewerFetch('stats');
+        if (stats.error) { el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(stats.error) + '</div>'; return; }
+        el.innerHTML = '<div class="json-tree">' + buildJsonTree(stats) + '</div>';
+    } catch(e) { el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(e.message) + '</div>'; }
+}
+
+async function viewerFields() {
+    const el = document.getElementById('viewer-result');
+    el.innerHTML = '<span class="loading"></span> Loading fields...';
+    try {
+        const fields = await viewerFetch('fields');
+        if (fields.error) { el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(fields.error) + '</div>'; return; }
+        let html = '<table style="width:100%;border-collapse:collapse;font-size:0.8rem">';
+        html += '<tr style="background:#f1f5f9;font-weight:600"><td style="padding:0.35rem 0.5rem">Field Name</td><td style="padding:0.35rem 0.5rem">Index Options</td><td style="padding:0.35rem 0.5rem">DocValues</td></tr>';
+        fields.forEach(f => {
+            html += '<tr style="border-top:1px solid #f1f5f9;cursor:pointer" onclick="document.getElementById(\'viewer-term-field\').value=\'' + escapeHtml(f.name) + '\'">';
+            html += '<td style="padding:0.35rem 0.5rem;color:#1d4ed8;font-weight:500;font-family:monospace">' + escapeHtml(f.name) + '</td>';
+            html += '<td style="padding:0.35rem 0.5rem">' + escapeHtml(f.indexOptions || 'NONE') + '</td>';
+            html += '<td style="padding:0.35rem 0.5rem">' + escapeHtml(f.docValuesType || 'NONE') + '</td>';
+            html += '</tr>';
+        });
+        html += '</table>';
+        el.innerHTML = html;
+    } catch(e) { el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(e.message) + '</div>'; }
+}
+
+async function viewerDocs() {
+    const el = document.getElementById('viewer-result');
+    el.innerHTML = '<span class="loading"></span> Loading documents...';
+    try {
+        const docs = await viewerFetch('documents?start=0&limit=10');
+        if (docs.error) { el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(docs.error) + '</div>'; return; }
+        let html = '';
+        docs.forEach(doc => {
+            html += '<div style="margin-bottom:0.5rem;border:1px solid #e2e8f0;border-radius:0.375rem;overflow:hidden">';
+            html += '<div style="padding:0.5rem 0.75rem;background:#f8fafc;cursor:pointer;display:flex;align-items:center;gap:0.5rem" onclick="this.nextElementSibling.classList.toggle(\'hidden\')">';
+            html += '<span style="color:#94a3b8">&#9654;</span> ';
+            html += '<span class="badge badge-blue">doc #' + doc.docId + '</span> ';
+            const sf = doc.storedFields || doc.fields || {};
+            const uid = sf['_uid'] ? sf['_uid'][0] : '';
+            if (uid) html += '<span class="badge badge-gray">' + escapeHtml(uid) + '</span>';
+            html += '</div>';
+            html += '<div class="hidden" style="padding:0.5rem 0.75rem;max-height:400px;overflow:auto">';
+            html += '<div class="json-tree">' + buildJsonTree(doc.storedFields || doc.fields || {}) + '</div>';
+            html += '</div></div>';
+        });
+        el.innerHTML = html || '<div style="color:#94a3b8">No documents found.</div>';
+    } catch(e) { el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(e.message) + '</div>'; }
+}
+
+async function viewerTerms() {
+    const field = document.getElementById('viewer-term-field').value.trim();
+    if (!field) return;
+    const limit = parseInt(document.getElementById('viewer-term-limit').value) || 50;
+    const el = document.getElementById('viewer-terms-result');
+    el.innerHTML = '<span class="loading"></span> Loading terms...';
+    try {
+        const page = await viewerFetch('terms/' + encodeURIComponent(field) + '?limit=' + limit);
+        if (page.error) { el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(page.error) + '</div>'; return; }
+        let html = '<div style="margin-bottom:0.5rem;font-size:0.8rem"><strong>' + escapeHtml(field) + '</strong>';
+        if (page.terms) html += ' (' + page.terms.length + ' terms shown)';
+        html += '</div>';
+        if (page.terms && page.terms.length > 0) {
+            html += '<div style="display:flex;flex-wrap:wrap;gap:0.35rem">';
+            page.terms.forEach(t => {
+                var termText = t.term || t.text;
+                html += '<span class="badge badge-blue" style="cursor:pointer" title="Click to view postings. docFreq=' + t.docFreq + '" '
+                    + 'onclick="viewerPostings(\'' + escapeHtml(field).replace(/'/g,"\\'") + '\',\'' + escapeHtml(termText).replace(/'/g,"\\'") + '\')">'
+                    + escapeHtml(termText) + ' <span style="opacity:0.6">(' + t.docFreq + ')</span></span>';
+            });
+            html += '</div>';
+        } else {
+            html += '<div style="color:#94a3b8">No terms found for this field.</div>';
+        }
+        el.innerHTML = html;
+    } catch(e) { el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(e.message) + '</div>'; }
+}
+
+// ─── KVStore ──────────────────────────────────────────────────────
+
+async function kvFetch() {
+    const domain = document.getElementById('kv-domain').value.trim();
+    const did = document.getElementById('kv-did').value.trim();
+    if (!domain || !did) return;
+    const el = document.getElementById('kv-result');
+    el.innerHTML = '<span class="loading"></span> Fetching...';
+    try {
+        const result = await api('GET', '/search/doc/' + encodeURIComponent(domain) + '/' + encodeURIComponent(did));
+        if (result.error) { el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(result.error) + '</div>'; return; }
+        if (result.found) {
+            let html = '<div class="status-msg status-ok" style="margin-bottom:0.5rem">Found: <strong>' + escapeHtml(result.key) + '</strong></div>';
+            html += '<div class="json-tree">' + buildJsonTree(result.document) + '</div>';
+            el.innerHTML = html;
+        } else {
+            el.innerHTML = '<div class="status-msg status-warn">Document not found: ' + escapeHtml(result.key) + '</div>';
+        }
+    } catch(e) { el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(e.message) + '</div>'; }
+}
+
+// ─── Features ────────────────────────────────────────────────────
+const FEAT_API = '/api/features';
+
+async function featApi(method, path, body) {
+    var opts = { method: method, headers: {'Content-Type': 'application/json'} };
+    if (body !== undefined) opts.body = typeof body === 'string' ? body : JSON.stringify(body);
+    var res = await fetch(FEAT_API + path, opts);
+    var text = await res.text();
+    if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + text);
+    return JSON.parse(text);
+}
+
+async function loadFeatureStatus() {
+    try {
+        var data = await featApi('GET', '/status');
+        document.getElementById('feat-status').innerHTML =
+            '<span class="badge badge-blue">' + data.featureCount + ' features</span> '
+            + '<span class="badge badge-green">' + data.extractedDocuments + ' docs extracted</span> '
+            + (data.indexed ? '<span class="badge badge-green">Indexed</span>' : '<span class="badge badge-gray">Not indexed</span>');
+        var html = '<table class="ut-table"><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>';
+        data.features.forEach(function(f) {
+            html += '<tr><td><code>' + f.name + '</code></td><td>' + f.dataType + '</td><td>' + f.description + '</td></tr>';
+        });
+        html += '</tbody></table>';
+        document.getElementById('feat-definitions').innerHTML = html;
+        // Populate query feature dropdown
+        var sel = document.getElementById('feat-query-feature');
+        sel.innerHTML = '';
+        data.features.forEach(function(f) { sel.innerHTML += '<option value="' + f.name + '">' + f.name + '</option>'; });
+        refreshExtractedDocs();
+    } catch(e) { console.error('feature status', e); }
+}
+
+function loadSampleDocs() {
+    document.getElementById('feat-input').value = JSON.stringify([
+        {"id": 1, "title": "Machine Learning in Healthcare", "body": "Artificial intelligence and machine learning are transforming healthcare delivery. From diagnostic imaging to drug discovery, these technologies offer unprecedented opportunities.", "date": "2025-03-15", "tags": ["AI", "healthcare"]},
+        {"id": 2, "title": "Climate Change Report", "body": "Global temperatures continue to rise. The latest IPCC report highlights urgent need for action across all sectors of the economy.", "date": "2025-01-20", "author": "IPCC"},
+        {"id": 3, "title": "Cooking with Spices", "body": "A guide to using cumin coriander and turmeric in everyday cooking.", "metadata": {"category": "food"}},
+        {"id": 4, "title": "Q3 Financial Results", "body": "Revenue increased 15% year over year driven by strong growth in cloud services and enterprise subscriptions.", "date": "2025-10-01", "tags": ["finance", "quarterly"], "metrics": {"revenue": 4200000}},
+        {"id": 5, "title": "Short", "body": "Brief."}
+    ], null, 2);
+}
+
+async function extractFeatures() {
+    var input = document.getElementById('feat-input').value.trim();
+    if (!input) { alert('Please enter JSON document(s)'); return; }
+    try {
+        var parsed = JSON.parse(input);
+        var result;
+        if (Array.isArray(parsed)) {
+            result = await featApi('POST', '/extract-batch', parsed);
+            var html = '<div style="margin-bottom:0.5rem"><span class="badge badge-green">' + result.documentCount + ' docs, ' + result.totalFeatures + ' features</span></div>';
+            result.documents.forEach(function(doc) {
+                html += '<div style="margin-bottom:0.5rem;font-weight:600;font-size:0.8rem">Doc #' + doc.documentId + '</div>';
+                html += renderFeaturesTable(doc.features);
+            });
+            document.getElementById('feat-results').innerHTML = html;
+        } else {
+            result = await featApi('POST', '/extract', parsed);
+            var html = '<div style="margin-bottom:0.5rem"><span class="badge badge-green">Doc #' + result.documentId + ': ' + result.featureCount + ' features</span></div>';
+            html += renderFeaturesTable(result.features);
+            document.getElementById('feat-results').innerHTML = html;
+        }
+        loadFeatureStatus();
+    } catch(e) {
+        document.getElementById('feat-results').innerHTML = '<div style="color:#dc2626">Error: ' + e.message + '</div>';
+    }
+}
+
+function renderFeaturesTable(features) {
+    var html = '<table class="ut-table" style="margin-bottom:0.75rem"><thead><tr><th>Feature</th><th>Value</th></tr></thead><tbody>';
+    features.forEach(function(f) {
+        var val = f.value !== null && f.value !== undefined ? f.value : '<span style="color:#9ca3af">null</span>';
+        var cls = (typeof f.value === 'number' && f.value > 0) ? 'ut-fast' : '';
+        html += '<tr><td><code>' + f.name + '</code></td><td class="num ' + cls + '">' + val + '</td></tr>';
+    });
+    html += '</tbody></table>';
+    return html;
+}
+
+async function indexFeatures() {
+    try {
+        var result = await featApi('POST', '/index');
+        document.getElementById('feat-index-status').innerHTML =
+            '<span class="badge badge-green">Indexed ' + result.indexedValues + ' values from ' + result.documentsIndexed + ' docs</span>';
+        loadFeatureStatus();
+    } catch(e) {
+        document.getElementById('feat-index-status').innerHTML = '<span style="color:#dc2626">' + e.message + '</span>';
+    }
+}
+
+async function queryFeatureIndex() {
+    var docId = document.getElementById('feat-query-docid').value;
+    var feature = document.getElementById('feat-query-feature').value;
+    if (!docId) { alert('Enter a document ID'); return; }
+    try {
+        var result = await featApi('GET', '/query?docId=' + docId + '&feature=' + encodeURIComponent(feature));
+        var html = '<table class="ut-table"><tbody>';
+        html += '<tr><td>Document ID</td><td class="num">' + result.documentId + '</td></tr>';
+        html += '<tr><td>Feature</td><td><code>' + result.feature + '</code></td></tr>';
+        html += '<tr><td>Found</td><td>' + (result.found ? '<span class="ut-fast">Yes</span>' : '<span class="ut-slow">No</span>') + '</td></tr>';
+        html += '<tr><td>Value</td><td class="num ut-fast">' + (result.value !== null ? result.value : 'N/A') + '</td></tr>';
+        html += '</tbody></table>';
+        document.getElementById('feat-query-result').innerHTML = html;
+    } catch(e) {
+        document.getElementById('feat-query-result').innerHTML = '<span style="color:#dc2626">' + e.message + '</span>';
+    }
+}
+
+async function refreshExtractedDocs() {
+    try {
+        var data = await featApi('GET', '/extracted');
+        if (data.documentCount === 0) {
+            document.getElementById('feat-extracted-docs').innerHTML = '<p class="description">No documents extracted yet.</p>';
+            return;
+        }
+        var html = '<div style="margin-bottom:0.25rem"><strong>' + data.documentCount + ' documents</strong></div>';
+        data.documents.forEach(function(doc) {
+            html += '<div style="padding:0.2rem 0;border-bottom:1px solid #f1f5f9">Doc #' + doc.documentId + ': ';
+            doc.features.forEach(function(f) {
+                html += '<span style="margin-right:0.5rem">' + f.name + '=<strong>' + f.value + '</strong></span>';
+            });
+            html += '</div>';
+        });
+        document.getElementById('feat-extracted-docs').innerHTML = html;
+    } catch(e) { console.error(e); }
+}
+
+async function clearFeatures() {
+    await featApi('POST', '/clear');
+    document.getElementById('feat-results').innerHTML = '<p class="description">Cleared.</p>';
+    document.getElementById('feat-extracted-docs').innerHTML = '<p class="description">No documents extracted yet.</p>';
+    document.getElementById('feat-index-status').innerHTML = '';
+    document.getElementById('feat-query-result').innerHTML = '';
+    loadFeatureStatus();
+}
+
+// ─── Term Postings Viewer ─────────────────────────────────────────
+
+async function viewerPostings(field, term) {
+    var el = document.getElementById('viewer-postings-result');
+    el.style.display = 'block';
+    el.innerHTML = '<span class="loading"></span> Loading postings for <strong>' + escapeHtml(term) + '</strong> in <strong>' + escapeHtml(field) + '</strong>...';
+    try {
+        var data = await viewerFetch('postings/' + encodeURIComponent(field) + '?term=' + encodeURIComponent(term) + '&limit=10');
+        if (data.error || data.message) {
+            el.innerHTML = '<div class="status-msg status-warn">' + escapeHtml(data.error || data.message) + '</div>';
+            return;
+        }
+        var html = '<div style="margin-bottom:0.5rem"><strong>Postings for "' + escapeHtml(term) + '"</strong> in <code>' + escapeHtml(field) + '</code>'
+            + ' <span class="badge badge-gray">' + data.totalDocsWithTerm + ' docs total</span></div>';
+
+        if (data.docs && data.docs.length > 0) {
+            html += '<table style="width:100%;border-collapse:collapse;font-size:0.78rem">';
+            html += '<tr style="background:#f1f5f9;font-weight:600"><td style="padding:0.3rem 0.5rem">Doc ID</td>'
+                + '<td style="padding:0.3rem 0.5rem">Freq</td>'
+                + '<td style="padding:0.3rem 0.5rem">Position</td>'
+                + '<td style="padding:0.3rem 0.5rem">Start</td>'
+                + '<td style="padding:0.3rem 0.5rem">End</td>'
+                + '<td style="padding:0.3rem 0.5rem">Payload</td></tr>';
+            data.docs.forEach(function(doc) {
+                doc.positions.forEach(function(p, i) {
+                    html += '<tr style="border-top:1px solid #f1f5f9">';
+                    if (i === 0) {
+                        html += '<td style="padding:0.3rem 0.5rem;font-weight:600" rowspan="' + doc.positions.length + '">' + doc.docId + '</td>';
+                        html += '<td style="padding:0.3rem 0.5rem" rowspan="' + doc.positions.length + '">' + doc.freq + '</td>';
+                    }
+                    html += '<td style="padding:0.3rem 0.5rem;color:#1d4ed8">' + p.position + '</td>';
+                    html += '<td style="padding:0.3rem 0.5rem">' + (p.startOffset >= 0 ? p.startOffset : '-') + '</td>';
+                    html += '<td style="padding:0.3rem 0.5rem">' + (p.endOffset >= 0 ? p.endOffset : '-') + '</td>';
+                    html += '<td style="padding:0.3rem 0.5rem;color:#94a3b8">' + (p.payload || '-') + '</td>';
+                    html += '</tr>';
+                });
+            });
+            html += '</table>';
+        } else {
+            html += '<div style="color:#94a3b8">No postings found.</div>';
+        }
+        el.innerHTML = html;
+    } catch(e) {
+        el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(e.message) + '</div>';
+    }
+}
+
+// ─── Analyzer Chain Builder ──────────────────────────────────────
+
+var analyzerTokenizers = [];
+var analyzerFilters = [];
+
+async function analyzerLoadOptions() {
+    try {
+        analyzerTokenizers = await fetch('/api/retrieval/analyzer/tokenizers').then(function(r) { return r.json(); });
+        var filterGroups = await fetch('/api/retrieval/analyzer/filters').then(function(r) { return r.json(); });
+
+        // Populate tokenizer dropdown with groups
+        var tokSel = document.getElementById('analyzer-tokenizer');
+        tokSel.innerHTML = '';
+        var tokGroups = { 'Common': [], 'N-Gram': [], 'Other': [] };
+        var commonToks = ['standard', 'whitespace', 'keyword', 'letter', 'classic'];
+        var ngramToks = ['nGram', 'edgeNGram'];
+        analyzerTokenizers.forEach(function(t) {
+            if (commonToks.includes(t)) tokGroups['Common'].push(t);
+            else if (ngramToks.includes(t)) tokGroups['N-Gram'].push(t);
+            else tokGroups['Other'].push(t);
+        });
+        for (var gname in tokGroups) {
+            if (tokGroups[gname].length === 0) continue;
+            var og = document.createElement('optgroup');
+            og.label = gname;
+            tokGroups[gname].forEach(function(t) {
+                var opt = document.createElement('option');
+                opt.value = t; opt.textContent = t;
+                if (t === 'standard') opt.selected = true;
+                og.appendChild(opt);
+            });
+            tokSel.appendChild(og);
+        }
+
+        // Populate filter dropdown with groups
+        var filtSel = document.getElementById('analyzer-filter-select');
+        filtSel.innerHTML = '<option value="">-- select filter --</option>';
+        for (var group in filterGroups) {
+            var og = document.createElement('optgroup');
+            og.label = group;
+            filterGroups[group].forEach(function(f) {
+                var opt = document.createElement('option');
+                opt.value = f; opt.textContent = f;
+                og.appendChild(opt);
+            });
+            filtSel.appendChild(og);
+        }
+    } catch(e) {}
+}
+
+function analyzerAddFilter() {
+    var sel = document.getElementById('analyzer-filter-select');
+    var name = sel.value;
+    if (!name) return;
+    var chain = document.getElementById('analyzer-filter-chain');
+    var pill = document.createElement('span');
+    pill.className = 'badge badge-amber';
+    pill.style.cursor = 'pointer';
+    pill.title = 'Click to remove';
+    pill.dataset.filter = name;
+    pill.innerHTML = escapeHtml(name) + ' &times;';
+    pill.onclick = function() { pill.remove(); };
+    chain.appendChild(pill);
+}
+
+function analyzerClear() {
+    document.getElementById('analyzer-filter-chain').innerHTML = '';
+}
+
+async function analyzerAnalyze() {
+    var tokenizer = document.getElementById('analyzer-tokenizer').value;
+    var text = document.getElementById('analyzer-text').value;
+    var filters = [];
+    document.querySelectorAll('#analyzer-filter-chain .badge').forEach(function(pill) {
+        filters.push(pill.dataset.filter);
+    });
+
+    var el = document.getElementById('analyzer-result');
+    el.innerHTML = '<span class="loading"></span> Analyzing...';
+
+    try {
+        var res = await fetch('/api/retrieval/analyzer/analyze', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ tokenizer: tokenizer, filters: filters, text: text })
+        }).then(function(r) { return r.json(); });
+
+        if (res.error) {
+            el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(res.error) + '</div>';
+            return;
+        }
+
+        var html = '<div style="margin-bottom:0.5rem;font-size:0.8rem">'
+            + '<strong>Tokenizer:</strong> ' + escapeHtml(res.tokenizerUsed || tokenizer)
+            + ' <strong>Filters:</strong> ' + (res.filtersUsed && res.filtersUsed.length > 0 ? res.filtersUsed.map(escapeHtml).join(' → ') : 'none')
+            + ' <span class="badge badge-green">' + res.tokenCount + ' tokens</span></div>';
+
+        if (res.tokens && res.tokens.length > 0) {
+            html += '<table style="width:100%;border-collapse:collapse;font-size:0.78rem">';
+            html += '<tr style="background:#f1f5f9;font-weight:600">'
+                + '<td style="padding:0.3rem 0.5rem">Pos</td>'
+                + '<td style="padding:0.3rem 0.5rem">Term</td>'
+                + '<td style="padding:0.3rem 0.5rem">Type</td>'
+                + '<td style="padding:0.3rem 0.5rem">Start</td>'
+                + '<td style="padding:0.3rem 0.5rem">End</td>'
+                + '<td style="padding:0.3rem 0.5rem">PosInc</td>'
+                + '<td style="padding:0.3rem 0.5rem">PosLen</td></tr>';
+            res.tokens.forEach(function(t) {
+                var posColor = t.positionIncrement === 0 ? 'color:#7c3aed;font-weight:600' : '';
+                html += '<tr style="border-top:1px solid #f1f5f9">';
+                html += '<td style="padding:0.3rem 0.5rem;' + posColor + '">' + t.position + '</td>';
+                html += '<td style="padding:0.3rem 0.5rem;font-weight:600;color:#1d4ed8">' + escapeHtml(t.term) + '</td>';
+                html += '<td style="padding:0.3rem 0.5rem;color:#94a3b8;font-size:0.7rem">' + escapeHtml(t.type || '') + '</td>';
+                html += '<td style="padding:0.3rem 0.5rem">' + t.startOffset + '</td>';
+                html += '<td style="padding:0.3rem 0.5rem">' + t.endOffset + '</td>';
+                html += '<td style="padding:0.3rem 0.5rem;' + posColor + '">' + t.positionIncrement + '</td>';
+                html += '<td style="padding:0.3rem 0.5rem">' + t.positionLength + '</td>';
+                html += '</tr>';
+            });
+            html += '</table>';
+        }
+        el.innerHTML = html;
+    } catch(e) {
+        el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(e.message) + '</div>';
+    }
+}
+
+// ─── Unit Time ───────────────────────────────────────────────────
+const UT_API = '/api/unittime';
+
+async function utApi(method, path) {
+    const res = await fetch(UT_API + path, { method });
+    const text = await res.text();
+    if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + text);
+    return JSON.parse(text);
+}
+
+async function loadUnitTimeStatus() {
+    try {
+        const data = await utApi('GET', '/status');
+        const info = document.getElementById('ut-cpu-info');
+        info.innerHTML = '<span class="badge badge-blue">CPU: ' + data.cpuGhz.toFixed(2) + ' GHz</span> '
+            + '<span class="badge badge-green">JVM: ' + data.jvmVersion + '</span> '
+            + '<span class="badge badge-gray">' + data.osName + ' ' + data.osArch + '</span> '
+            + '<span class="badge badge-gray">' + data.timerCount + ' timers</span>';
+        const cats = await utApi('GET', '/categories');
+        const sel = document.getElementById('ut-category');
+        sel.innerHTML = '<option value="">All Categories</option>';
+        cats.forEach(function(c) { sel.innerHTML += '<option value="' + c + '">' + c + '</option>'; });
+    } catch(e) { console.error('unittime status', e); }
+}
+
+async function runBenchmarks() {
+    var btn = document.getElementById('ut-run-btn');
+    var progress = document.getElementById('ut-progress');
+    btn.disabled = true;
+    progress.style.display = 'block';
+    document.getElementById('ut-results').innerHTML = '';
+    try {
+        var filter = document.getElementById('ut-filter').value || document.getElementById('ut-category').value;
+        var params = filter ? '?filter=' + encodeURIComponent(filter) : '';
+        var results = await utApi('GET', '/run' + params);
+        renderUnitTimeResults(results);
+    } catch(e) {
+        document.getElementById('ut-results').innerHTML = '<div style="color:#dc2626">Error: ' + e.message + '</div>';
+    } finally {
+        btn.disabled = false;
+        progress.style.display = 'none';
+    }
+}
+
+var utSortField = null;
+var utSortAsc = true;
+var utLastResults = [];
+
+function renderUnitTimeResults(results) {
+    utLastResults = results;
+    if (!results || results.length === 0) {
+        document.getElementById('ut-results').innerHTML = '<p class="description">No results.</p>';
+        return;
+    }
+    var html = '<div style="margin-bottom:0.5rem" class="description">' + results.length + ' benchmarks completed</div>';
+    html += '<table class="ut-table"><thead><tr>';
+    html += '<th data-sort="category">Category</th>';
+    html += '<th data-sort="subCategory">Subcategory</th>';
+    html += '<th data-sort="description">Description</th>';
+    html += '<th data-sort="nsPerUnit" style="text-align:right">ns/op &#x25B4;&#x25BE;</th>';
+    html += '<th data-sort="instructionCycles" style="text-align:right">Cycles &#x25B4;&#x25BE;</th>';
+    html += '<th data-sort="units" style="text-align:right">Units &#x25B4;&#x25BE;</th>';
+    html += '</tr></thead><tbody>';
+    results.forEach(function(r) {
+        var cls = r.units < 5 ? 'ut-fast' : r.units < 50 ? 'ut-medium' : 'ut-slow';
+        html += '<tr>';
+        html += '<td>' + (r.category || '') + '</td>';
+        html += '<td>' + (r.subCategory || '') + '</td>';
+        html += '<td>' + (r.description || '') + '</td>';
+        html += '<td class="num ' + cls + '">' + r.nsPerUnit.toFixed(2) + '</td>';
+        html += '<td class="num ' + cls + '">' + r.instructionCycles.toFixed(1) + '</td>';
+        html += '<td class="num ' + cls + '">' + r.units.toFixed(2) + '</td>';
+        html += '</tr>';
+    });
+    html += '</tbody></table>';
+    document.getElementById('ut-results').innerHTML = html;
+
+    document.querySelectorAll('.ut-table th[data-sort]').forEach(function(th) {
+        th.addEventListener('click', function() {
+            var field = th.dataset.sort;
+            if (utSortField === field) { utSortAsc = !utSortAsc; } else { utSortField = field; utSortAsc = true; }
+            utLastResults.sort(function(a, b) {
+                var va = a[field], vb = b[field];
+                if (typeof va === 'number') return utSortAsc ? va - vb : vb - va;
+                return utSortAsc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+            });
+            renderUnitTimeResults(utLastResults);
+        });
+    });
+}
+
+// ─── Retrieval Pipeline ───────────────────────────────────────────
+let rtKvEnabled = false;
+
+async function rtLoadStatus() {
+    try {
+        const data = await fetch('/api/retrieval/status').then(r => r.json());
+        rtRefreshIndexList(data.indexDetails || []);
+        rtKvEnabled = !!data.kvStoreEnabled;
+        rtUpdateKvUi();
+        // Load transport status
+        try {
+            var ts = await fetch('/api/retrieval/transport/status').then(r => r.json());
+            rtRemoteTransport = ts.remote;
+            rtUpdateTransportUi();
+        } catch (e) {}
+        rtPopulateTypeSelector();
+        rtLoadDatasets();
+    } catch (e) {
+        document.getElementById('rt-status-msg').innerHTML = '<div class="status-msg status-err">Retrieval API not available: ' + escapeHtml(e.message) + '</div>';
+    }
+}
+
+async function rtLoadDatasets() {
+    try {
+        const datasets = await fetch('/api/retrieval/datasets').then(r => r.json());
+        const container = document.getElementById('rt-dataset-btns');
+        let html = '';
+        var colors = { ARTICLES: 'btn-primary', PRODUCTS: 'btn-green', MOVIES: 'btn-amber', DEMO_DOCUMENTS: 'btn-secondary' };
+        var icons = { ARTICLES: '&#128240;', PRODUCTS: '&#128722;', MOVIES: '&#127916;', DEMO_DOCUMENTS: '&#128196;' };
+        datasets.forEach(function(ds) {
+            var btnClass = colors[ds.name] || 'btn-secondary';
+            var icon = icons[ds.name] || '';
+            html += '<button class="' + btnClass + '" onclick="rtLoadExampleDataset(\'' + ds.name + '\')" style="text-align:left;padding:0.5rem 0.75rem">'
+                + icon + ' <strong>' + escapeHtml(ds.indexName) + '</strong>'
+                + ' <span style="font-weight:400;opacity:0.8">(' + ds.documentCount + ' docs)</span>'
+                + '</button>';
+        });
+        container.innerHTML = html;
+    } catch (e) {
+        document.getElementById('rt-dataset-btns').innerHTML = '<span style="color:#94a3b8;font-size:0.85rem">Could not load datasets</span>';
+    }
+}
+
+function rtGetEnrichTags() {
+    var tags = [];
+    document.querySelectorAll('.rt-enrich-tag:checked').forEach(function(cb) { tags.push(cb.value); });
+    return tags.length > 0 ? tags.join(',') : null;
+}
+
+async function rtLoadExampleDataset(name) {
+    var enrichTags = rtGetEnrichTags();
+    var enrichLabel = enrichTags ? ' with enrichment [' + enrichTags + ']' : '';
+    document.getElementById('rt-status-msg').innerHTML = '<span class="loading"></span> Loading <strong>' + escapeHtml(name) + '</strong>' + enrichLabel + '...';
+    try {
+        var payload = { dataset: name };
+        if (enrichTags) payload.enrichTags = enrichTags;
+        const res = await fetch('/api/retrieval/datasets/load', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        }).then(r => r.json());
+        if (res.success) {
+            var msg = 'Loaded <strong>' + res.indexed + '</strong> documents into index <strong>' + escapeHtml(res.indexName) + '</strong>';
+            if (res.enriched) msg += ' <span class="badge badge-amber">enriched: ' + escapeHtml(res.enrichTags) + '</span>';
+            document.getElementById('rt-status-msg').innerHTML = '<div class="status-msg status-ok">' + msg + '</div>';
+        } else {
+            document.getElementById('rt-status-msg').innerHTML = '<div class="status-msg status-err">' + escapeHtml(res.error) + '</div>';
+        }
+        rtLoadStatus();
+    } catch (e) {
+        document.getElementById('rt-status-msg').innerHTML = '<div class="status-msg status-err">' + escapeHtml(e.message) + '</div>';
+    }
+}
+
+function rtPopulateTypeSelector() {
+    const sel = document.getElementById('rt-index-type');
+    if (sel.options.length > 1) return;
+    fetch(API + '/types').then(r => r.json()).then(function(list) {
+        if (!Array.isArray(list)) return;
+        list.forEach(function(t) {
+            const opt = document.createElement('option');
+            opt.value = t; opt.textContent = t; sel.appendChild(opt);
+        });
+    }).catch(function() {});
+}
+
+function rtRefreshIndexList(details) {
+    const listEl = document.getElementById('rt-index-list');
+    const queryEl = document.getElementById('rt-query-indexes');
+    const countEl = document.getElementById('rt-index-count');
+
+    if (!details || details.length === 0) {
+        listEl.innerHTML = '<div style="padding:0.5rem;color:#94a3b8;font-size:0.85rem">No indexes yet -- load a dataset above</div>';
+        queryEl.innerHTML = '<span style="color:#94a3b8;font-size:0.8rem">No indexes available</span>';
+        countEl.textContent = '0';
+        return;
+    }
+
+    countEl.textContent = details.length;
+
+    let listHtml = '';
+    let checkHtml = '';
+    details.forEach(function(idx) {
+        listHtml += '<div class="type-item" style="display:flex;justify-content:space-between;align-items:center">'
+            + '<span><strong>' + escapeHtml(idx.name) + '</strong>'
+            + ' <span class="badge badge-blue">' + idx.documentCount + ' docs</span>'
+            + (idx.typeName ? ' <span class="badge badge-gray">' + escapeHtml(idx.typeName) + '</span>' : '')
+            + '</span>'
+            + '<button class="btn-secondary" style="font-size:0.7rem;padding:0.15rem 0.4rem" onclick="rtDeleteIndex(\'' + escapeHtml(idx.name) + '\')">&#10005;</button>'
+            + '</div>';
+        checkHtml += '<label style="display:flex;align-items:center;gap:0.35rem;font-weight:400;cursor:pointer;font-size:0.85rem;padding:0.15rem 0">'
+            + '<input type="checkbox" class="rt-idx-cb" value="' + escapeHtml(idx.name) + '" checked> '
+            + '<strong>' + escapeHtml(idx.name) + '</strong>'
+            + ' <span class="badge badge-blue" style="font-size:0.65rem">' + idx.documentCount + '</span>'
+            + '</label>';
+    });
+    listEl.innerHTML = listHtml;
+    queryEl.innerHTML = checkHtml;
+    // Load field suggestions for query builder
+    setTimeout(rtLoadFieldSuggestions, 100);
+}
+
+async function rtCreateIndex() {
+    const name = document.getElementById('rt-new-index').value.trim();
+    if (!name) { alert('Enter an index name'); return; }
+    const typeName = document.getElementById('rt-index-type').value || null;
+    try {
+        const res = await fetch('/api/retrieval/indexes', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ name: name, typeName: typeName })
+        }).then(r => r.json());
+        document.getElementById('rt-status-msg').innerHTML = '<div class="status-msg status-ok">' + escapeHtml(res.action || 'Index created') + ': <strong>' + escapeHtml(name) + '</strong></div>';
+        document.getElementById('rt-new-index').value = '';
+        rtLoadStatus();
+    } catch (e) {
+        document.getElementById('rt-status-msg').innerHTML = '<div class="status-msg status-err">' + escapeHtml(e.message) + '</div>';
+    }
+}
+
+async function rtDeleteIndex(name) {
+    try {
+        await fetch('/api/retrieval/indexes/' + encodeURIComponent(name), { method: 'DELETE' }).then(r => r.json());
+        rtLoadStatus();
+    } catch (e) {
+        alert('Delete failed: ' + e.message);
+    }
+}
+
+async function rtLoadCustomIntoSelected() {
+    const name = document.getElementById('rt-new-index').value.trim();
+    if (!name) { alert('Enter an index name first and click Create'); return; }
+    const ta = document.getElementById('rt-custom-docs');
+    try {
+        const docs = JSON.parse(ta.value);
+        if (!indexManager) {
+            // create index first if needed
+            await fetch('/api/retrieval/indexes', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ name: name })
+            });
+        }
+        const res = await fetch('/api/retrieval/indexes/' + encodeURIComponent(name) + '/documents', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(Array.isArray(docs) ? docs : [docs])
+        }).then(r => r.json());
+        document.getElementById('rt-status-msg').innerHTML = '<div class="status-msg status-ok">Loaded <strong>' + (res.indexed || 0) + '</strong> documents into <strong>' + escapeHtml(name) + '</strong></div>';
+        rtLoadStatus();
+    } catch (e) {
+        document.getElementById('rt-status-msg').innerHTML = '<div class="status-msg status-err">JSON error: ' + escapeHtml(e.message) + '</div>';
+    }
+}
+
+async function rtToggleKvStore() {
+    try {
+        if (rtKvEnabled) {
+            await fetch('/api/retrieval/kvstore/disable', { method: 'POST' }).then(r => r.json());
+            rtKvEnabled = false;
+        } else {
+            const res = await fetch('/api/retrieval/kvstore/enable', { method: 'POST' }).then(r => r.json());
+            rtKvEnabled = res.enabled;
+        }
+        rtUpdateKvUi();
+    } catch (e) {
+        alert('KVStore toggle failed: ' + e.message);
+    }
+}
+
+function rtUpdateKvUi() {
+    const btn = document.getElementById('rt-kv-btn');
+    const status = document.getElementById('rt-kv-status');
+    if (rtKvEnabled) {
+        btn.textContent = 'Disable KVStore';
+        status.textContent = 'Enabled';
+        status.className = 'badge badge-green';
+    } else {
+        btn.textContent = 'Enable KVStore';
+        status.textContent = 'Disabled';
+        status.className = 'badge badge-gray';
+    }
+}
+
+let rtRemoteTransport = false;
+
+async function rtToggleTransport() {
+    try {
+        var res = await fetch('/api/retrieval/transport/toggle', { method: 'POST' }).then(r => r.json());
+        rtRemoteTransport = res.remote;
+        rtUpdateTransportUi();
+        document.getElementById('rt-status-msg').innerHTML = '<div class="status-msg ' + (rtRemoteTransport ? 'status-info' : 'status-ok') + '">' + escapeHtml(res.description) + '</div>';
+    } catch (e) {
+        document.getElementById('rt-status-msg').innerHTML = '<div class="status-msg status-err">' + escapeHtml(e.message) + '</div>';
+    }
+}
+
+function rtUpdateTransportUi() {
+    var btn = document.getElementById('rt-transport-btn');
+    var status = document.getElementById('rt-transport-status');
+    if (rtRemoteTransport) {
+        btn.textContent = 'Switch to Local';
+        btn.className = 'btn-amber';
+        status.textContent = 'Remote (HTTP)';
+        status.className = 'badge badge-amber';
+    } else {
+        btn.textContent = 'Switch to Remote';
+        btn.className = 'btn-secondary';
+        status.textContent = 'Local';
+        status.className = 'badge badge-green';
+    }
+}
+
+// ─── Query Builder Helpers ─────────────────────────────────────
+
+function rtInsertOperator(op) {
+    var input = document.getElementById('rt-search-query');
+    var pos = input.selectionStart || input.value.length;
+    input.value = input.value.substring(0, pos) + op + input.value.substring(pos);
+    input.focus();
+    input.selectionStart = input.selectionEnd = pos + op.length;
+}
+
+function rtInsertField(fieldPath, isMls) {
+    var input = document.getElementById('rt-search-query');
+    var current = input.value.trim();
+    var fieldQuery = isMls ? fieldPath + '.mls:' : fieldPath + ':';
+    if (current === '*:*' || current === '') {
+        input.value = fieldQuery;
+    } else {
+        input.value = current + ' AND ' + fieldQuery;
+    }
+    input.focus();
+    // Place cursor right after the colon
+    input.selectionStart = input.selectionEnd = input.value.length;
+}
+
+function rtAddFacetConstraint(dimension, value) {
+    var input = document.getElementById('rt-search-query');
+    var current = input.value.trim();
+    var constraint = dimension + ':"' + value + '"';
+    if (current === '*:*' || current === '') {
+        input.value = constraint;
+    } else {
+        input.value = current + ' AND ' + constraint;
+    }
+    // Auto-execute the search with the new constraint
+    rtExecutePipeline();
+}
+
+var rtFieldsCache = null;
+
+async function rtLoadFieldSuggestions() {
+    var checkboxes = document.querySelectorAll('.rt-idx-cb:checked');
+    if (checkboxes.length === 0) {
+        document.getElementById('rt-field-suggestions').innerHTML = '<span style="color:#94a3b8;font-size:0.75rem">Select an index to see searchable fields</span>';
+        return;
+    }
+    var indexName = checkboxes[0].value;
+    try {
+        var fields = await fetch('/api/retrieval/fields/' + encodeURIComponent(indexName)).then(function(r) { return r.json(); });
+        rtFieldsCache = fields;
+        if (!fields || fields.length === 0) {
+            document.getElementById('rt-field-suggestions').innerHTML = '<span style="color:#94a3b8;font-size:0.75rem">No searchable fields found</span>';
+            return;
+        }
+        var html = '';
+        fields.forEach(function(f, idx) {
+            if (!f.indexed && !f.mls) return;
+            var color = f.mls ? '#7c3aed' : f.method === 'identifier' ? '#059669' : '#1d4ed8';
+            var label = f.path;
+            var badge = f.mls ? 'MLS' : f.method || 'field';
+
+            if (f.mls && f.subFields && f.subFields.length > 0) {
+                // MLS field with expandable sub-fields dropdown
+                html += '<span style="position:relative;display:inline-block">'
+                    + '<span style="display:inline-flex;align-items:center;gap:0.2rem;padding:0.15rem 0.5rem;'
+                    + 'background:white;border:1px solid #c4b5fd;border-radius:0.25rem;font-size:0.75rem;'
+                    + 'cursor:pointer;color:' + color + '" onclick="rtToggleFieldDropdown(this,event)">'
+                    + '<strong>' + escapeHtml(label) + '</strong>'
+                    + '<span style="font-size:0.65rem;color:#94a3b8;margin-left:0.15rem">' + badge + ' &#9662;</span>'
+                    + '</span>'
+                    + '<div class="rt-field-dropdown" onclick="event.stopPropagation()" style="display:none;position:absolute;top:100%;left:0;z-index:100;'
+                    + 'background:white;border:1px solid #d1d5db;border-radius:0.375rem;box-shadow:0 4px 12px rgba(0,0,0,0.15);'
+                    + 'min-width:260px;max-height:250px;overflow-y:auto;padding:0.25rem 0">';
+                // Default: mls shorthand (resolves to clean)
+                html += '<div style="padding:0.35rem 0.75rem;cursor:pointer;font-size:0.8rem;border-bottom:1px solid #e2e8f0;background:#f5f3ff" '
+                    + 'onmouseover="this.style.background=\'#ede9fe\'" onmouseout="this.style.background=\'#f5f3ff\'" '
+                    + 'onclick="event.stopPropagation();rtInsertFieldPath(\'' + escapeHtml(f.path) + '.mls\');rtCloseDropdowns()">'
+                    + '<strong style="color:#7c3aed">' + escapeHtml(f.path) + '.mls</strong>'
+                    + ' <span style="color:#94a3b8;font-size:0.7rem">→ clean (default search)</span></div>';
+                f.subFields.forEach(function(sf) {
+                    if (!sf.indexed) return;
+                    var sfColor = sf.dynamic ? '#d97706' : '#1d4ed8';
+                    html += '<div style="padding:0.3rem 0.75rem;cursor:pointer;font-size:0.78rem" '
+                        + 'onmouseover="this.style.background=\'#f1f5f9\'" onmouseout="this.style.background=\'white\'" '
+                        + 'onclick="event.stopPropagation();rtInsertFieldPath(\'' + escapeHtml(sf.path) + '\');rtCloseDropdowns()">'
+                        + '<span style="color:' + sfColor + '">' + escapeHtml(sf.path) + '</span>'
+                        + ' <span style="color:#94a3b8;font-size:0.65rem">' + (sf.method || '') + (sf.dynamic ? ' (dynamic)' : '') + '</span></div>';
+                });
+                html += '</div></span>';
+            } else {
+                // Non-MLS indexed field — direct insert
+                html += '<span style="display:inline-flex;align-items:center;gap:0.2rem;padding:0.15rem 0.5rem;'
+                    + 'background:white;border:1px solid #d1d5db;border-radius:0.25rem;font-size:0.75rem;'
+                    + 'cursor:pointer;color:' + color + '" '
+                    + 'onclick="rtInsertFieldPath(\'' + escapeHtml(f.path) + '\')" '
+                    + 'title="' + escapeHtml(f.hint || '') + '">'
+                    + '<strong>' + escapeHtml(label) + '</strong>'
+                    + '<span style="font-size:0.65rem;color:#94a3b8;margin-left:0.15rem">' + badge + '</span>'
+                    + '</span>';
+            }
+        });
+        document.getElementById('rt-field-suggestions').innerHTML = html;
+    } catch (e) {
+        document.getElementById('rt-field-suggestions').innerHTML = '<span style="color:#94a3b8;font-size:0.75rem">Could not load fields</span>';
+    }
+}
+
+function rtToggleFieldDropdown(el, event) {
+    event.stopPropagation();
+    rtCloseDropdowns();
+    var dd = el.parentElement.querySelector('.rt-field-dropdown');
+    if (dd) dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+}
+
+function rtCloseDropdowns() {
+    document.querySelectorAll('.rt-field-dropdown').forEach(function(dd) { dd.style.display = 'none'; });
+}
+
+function rtInsertFieldPath(fieldPath) {
+    var input = document.getElementById('rt-search-query');
+    var current = input.value.trim();
+    var fieldQuery = fieldPath + ':';
+    if (current === '*:*' || current === '') {
+        input.value = fieldQuery;
+    } else {
+        input.value = current + ' AND ' + fieldQuery;
+    }
+    input.focus();
+    input.selectionStart = input.selectionEnd = input.value.length;
+}
+
+// Close dropdowns on click outside
+document.addEventListener('click', function() { rtCloseDropdowns(); });
+
+// ─── Document View Mode ────────────────────────────────────────
+var rtViewMode = 'pretty';
+var rtLastDocs = [];
+
+function rtSetViewMode(mode) {
+    rtViewMode = mode;
+    document.getElementById('rt-view-pretty').style.background = mode === 'pretty' ? '#3b82f6' : '#e2e8f0';
+    document.getElementById('rt-view-pretty').style.color = mode === 'pretty' ? 'white' : '#475569';
+    document.getElementById('rt-view-json').style.background = mode === 'json' ? '#3b82f6' : '#e2e8f0';
+    document.getElementById('rt-view-json').style.color = mode === 'json' ? 'white' : '#475569';
+    rtRenderDocs(rtLastDocs, mode);
+}
+
+function rtRenderDocs(docs, mode) {
+    if (!docs || docs.length === 0) {
+        document.getElementById('rt-result-docs').innerHTML = '<span style="color:#94a3b8">No documents returned</span>';
+        return;
+    }
+    if (mode === 'json') {
+        rtRenderDocsJson(docs);
+    } else {
+        rtRenderDocsPretty(docs);
+    }
+}
+
+function rtRenderDocsJson(docs) {
+    var html = '';
+    docs.forEach(function(doc, i) {
+        var title = rtExtractTitle(doc);
+        var id = rtExtractId(doc);
+        html += '<details style="margin-bottom:0.5rem"><summary style="cursor:pointer;font-size:0.85rem">'
+            + '<span class="badge badge-gray">#' + (i+1) + '</span> '
+            + (id ? '<span class="badge badge-blue">' + escapeHtml(id) + '</span> ' : '')
+            + escapeHtml(title.substring(0, 120))
+            + '</summary><pre style="font-size:0.72rem;background:#f1f5f9;padding:0.5rem;border-radius:0.25rem;overflow:auto;max-height:400px">'
+            + escapeHtml(JSON.stringify(doc, null, 2)) + '</pre></details>';
+    });
+    document.getElementById('rt-result-docs').innerHTML = html;
+}
+
+function rtRenderDocsPretty(docs) {
+    var html = '';
+    docs.forEach(function(doc, i) {
+        var title = rtExtractTitle(doc);
+        var id = rtExtractId(doc);
+        var type = doc.type || '';
+        var score = doc._score !== undefined ? parseFloat(doc._score).toFixed(3) : '';
+
+        html += '<div style="border:1px solid #e2e8f0;border-radius:0.5rem;padding:0.75rem;margin-bottom:0.75rem;background:white">';
+
+        // Header row: badges
+        html += '<div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.5rem">';
+        html += '<span class="badge badge-gray">#' + (i+1) + '</span>';
+        if (id) html += '<span class="badge badge-blue">' + escapeHtml(id) + '</span>';
+        if (type) html += '<span class="badge badge-purple">' + escapeHtml(type) + '</span>';
+        if (score) html += '<span class="badge badge-amber">score: ' + score + '</span>';
+        if (doc._index) html += '<span class="badge badge-gray">' + escapeHtml(doc._index) + '</span>';
+        html += '</div>';
+
+        // Title
+        html += '<div style="font-size:1rem;font-weight:600;color:#1e293b;margin-bottom:0.5rem">' + escapeHtml(title) + '</div>';
+
+        // Body/content snippet
+        var body = rtExtractMlsText(doc, 'body') || rtExtractMlsText(doc, 'content') || rtExtractMlsText(doc, 'description') || '';
+        if (body) {
+            var snippet = body.length > 300 ? body.substring(0, 300) + '...' : body;
+            html += '<div style="font-size:0.85rem;color:#475569;line-height:1.5;margin-bottom:0.5rem">' + escapeHtml(snippet) + '</div>';
+        }
+
+        // NER highlights (if enriched)
+        var ner = rtExtractMlsField(doc, 'title', 'segmented_ner') || rtExtractMlsField(doc, 'body', 'segmented_ner');
+        if (ner) {
+            var nerText = Array.isArray(ner) ? ner[0] : String(ner);
+            html += '<div style="font-size:0.78rem;color:#64748b;background:#fef3c7;padding:0.35rem 0.5rem;border-radius:0.25rem;margin-bottom:0.5rem;line-height:1.4">'
+                + '<strong style="font-size:0.7rem;color:#92400e">NER:</strong> '
+                + nerText.replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                    .replace(/&lt;(person|organization|location|date|money)&gt;/g, '<span style="color:#7c3aed;font-weight:600">')
+                    .replace(/&lt;\/(person|organization|location|date|money)&gt;/g, '</span>')
+                + '</div>';
+        }
+
+        // Metadata fields in a compact grid
+        var metaFields = [];
+        var skipKeys = new Set(['type','id','title','body','content','description','_score','_uid','_index','_type','_rrf_score']);
+        for (var key in doc) {
+            if (skipKeys.has(key)) continue;
+            var val = doc[key];
+            if (val === null || val === undefined) continue;
+            if (typeof val === 'object' && val.mls) continue; // MLS shown above
+            var display = typeof val === 'object' ? JSON.stringify(val) : String(val);
+            if (display.length > 80) display = display.substring(0, 80) + '...';
+            metaFields.push({key: key, value: display});
+        }
+        if (metaFields.length > 0) {
+            html += '<div style="display:flex;gap:0.5rem;flex-wrap:wrap">';
+            metaFields.forEach(function(m) {
+                html += '<span style="font-size:0.72rem;background:#f1f5f9;padding:0.15rem 0.4rem;border-radius:0.2rem">'
+                    + '<span style="color:#64748b">' + escapeHtml(m.key) + ':</span> '
+                    + '<span style="color:#1e293b">' + escapeHtml(m.value) + '</span></span>';
+            });
+            html += '</div>';
+        }
+
+        html += '</div>';
+    });
+    document.getElementById('rt-result-docs').innerHTML = html;
+}
+
+function rtExtractTitle(doc) {
+    if (doc.title && doc.title.mls && doc.title.mls[0]) return doc.title.mls[0].text || '(no title)';
+    if (doc.title && typeof doc.title === 'string') return doc.title;
+    if (doc.name) return typeof doc.name === 'string' ? doc.name : JSON.stringify(doc.name);
+    return '(no title)';
+}
+
+function rtExtractId(doc) {
+    if (!doc.id) return '';
+    if (doc.id.domain && doc.id.did) return doc.id.domain + '/' + doc.id.did;
+    if (doc.id.id) return doc.id.id;
+    if (typeof doc.id === 'string') return doc.id;
+    return '';
+}
+
+function rtExtractMlsText(doc, field) {
+    var f = doc[field];
+    if (!f || !f.mls || !f.mls[0]) return null;
+    return f.mls[0].clean || f.mls[0].text || null;
+}
+
+function rtExtractMlsField(doc, field, subField) {
+    var f = doc[field];
+    if (!f || !f.mls || !f.mls[0]) return null;
+    return f.mls[0][subField] || null;
+}
+
+// Load field suggestions when index selection changes
+document.addEventListener('change', function(e) {
+    if (e.target && e.target.classList.contains('rt-idx-cb')) {
+        rtLoadFieldSuggestions();
+    }
+});
+
+async function rtExecutePipeline() {
+    var selectedIndexes = [];
+    document.querySelectorAll('.rt-idx-cb:checked').forEach(function(cb) { selectedIndexes.push(cb.value); });
+    if (selectedIndexes.length === 0) { alert('Select at least one index'); return; }
+
+    const btn = document.getElementById('rt-execute-btn');
+    btn.disabled = true;
+    btn.textContent = 'Executing...';
+    document.getElementById('rt-result-docs').innerHTML = '<span class="loading"></span> Executing pipeline...';
+    document.getElementById('rt-result-meta').innerHTML = '';
+    document.getElementById('rt-result-stages').innerHTML = '';
+    document.getElementById('rt-result-facets').innerHTML = '';
+    document.getElementById('rt-result-summary').innerHTML = '';
+    document.getElementById('rt-result-aggregates').innerHTML = '';
+    document.getElementById('rt-result-context').innerHTML = '<span style="color:#94a3b8;font-size:0.8rem">Not retrieved</span>';
+    document.getElementById('rt-result-facets').innerHTML = '<span style="color:#94a3b8;font-size:0.8rem">Not retrieved - add facet field names above</span>';
+    document.getElementById('rt-result-raw').textContent = '';
+
+    try {
+        // Build query object
+        var query = { search: {} };
+        query.search.query = document.getElementById('rt-search-query').value || '*:*';
+        query.search.offset = parseInt(document.getElementById('rt-search-offset').value) || 0;
+        query.search.limit = parseInt(document.getElementById('rt-search-limit').value) || 10;
+
+        var facetStr = document.getElementById('rt-search-facets').value.trim();
+        if (facetStr) {
+            query.search.facets = facetStr.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+        }
+
+        // Document fetch stage
+        if (document.getElementById('rt-fetch-enabled').checked) {
+            query.fetch = { enabled: true };
+        }
+
+        // Fixup stage
+        var fixupTags = [];
+        document.querySelectorAll('.rt-fixup-tag:checked').forEach(function(cb) { fixupTags.push(cb.value); });
+        if (fixupTags.length > 0) {
+            query.fixup = { tags: fixupTags };
+        }
+
+        // Pagination stage
+        if (document.getElementById('rt-page-enabled').checked) {
+            query.page = {
+                rows: parseInt(document.getElementById('rt-page-rows').value) || 5,
+                page: parseInt(document.getElementById('rt-page-page').value) || 0
+            };
+        }
+
+        // Summarization stage
+        if (document.getElementById('rt-summarize-enabled').checked) {
+            query.summarize = { enabled: true, maxDocs: 10, maxWords: 200 };
+        }
+
+        var lang = document.getElementById('rt-query-lang').value || 'en';
+        var mergerValue = document.querySelector('input[name="rt-merger"]:checked').value;
+        var res;
+
+        if (selectedIndexes.length === 1) {
+            // Single index: use full retrieval pipeline
+            var payload = { indexName: selectedIndexes[0], lang: lang, query: query };
+            res = await fetch('/api/retrieval/execute', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            }).then(function(r) { return r.json(); });
+            res._mode = 'pipeline';
+            res._indexes = selectedIndexes;
+        } else {
+            // Multiple indexes: use multi-index search
+            var payload = {
+                indexNames: selectedIndexes,
+                query: query.search.query,
+                offset: query.search.offset || 0,
+                limit: query.search.limit || 20,
+                lang: lang,
+                useKvStore: document.getElementById('rt-fetch-enabled').checked && rtKvEnabled,
+                merger: mergerValue,
+                facets: facetStr || null
+            };
+            res = await fetch('/api/retrieval/search-multiple', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            }).then(function(r) { return r.json(); });
+            res._mode = 'multi-index';
+            res._indexes = selectedIndexes;
+            // No pipeline stages for multi-index search
+            res.stagesUsed = ['MultiIndexSearch (' + selectedIndexes.join(', ') + ')'];
+        }
+
+        // Meta info
+        var metaHtml = '<div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center">';
+        if (res._mode === 'multi-index') metaHtml += '<span class="badge badge-purple">Multi-Index</span>';
+        else metaHtml += '<span class="badge badge-purple">Pipeline</span>';
+        if (res.source) metaHtml += '<span class="badge ' + (res.source === 'kvstore' ? 'badge-green' : 'badge-gray') + '">Source: ' + res.source + '</span>';
+        if (res.merger) metaHtml += '<span class="badge badge-purple">Merger: ' + escapeHtml(res.merger) + '</span>';
+        metaHtml += '<span class="badge ' + (rtRemoteTransport ? 'badge-amber' : 'badge-green') + '">' + (rtRemoteTransport ? 'Remote (HTTP)' : 'Local') + '</span>';
+        res._indexes.forEach(function(idx) { metaHtml += '<span class="badge badge-gray">' + escapeHtml(idx) + '</span>'; });
+        if (res.totalHits !== undefined) metaHtml += '<span class="badge badge-blue">Total Hits: ' + res.totalHits + '</span>';
+        metaHtml += '<span class="badge badge-green">Returned: ' + (res.documentCount || 0) + '</span>';
+        if (res.searchTimeMs !== undefined) metaHtml += '<span class="badge badge-gray">Search: ' + res.searchTimeMs + 'ms</span>';
+        if (res.totalTimeMs !== undefined) metaHtml += '<span class="badge badge-gray">Total: ' + res.totalTimeMs + 'ms</span>';
+        if (res.errors && res.errors.length > 0) metaHtml += '<span class="badge badge-red">Errors: ' + res.errors.length + '</span>';
+        metaHtml += '</div>';
+        if (res.errors && res.errors.length > 0) {
+            metaHtml += '<div class="status-msg status-err" style="margin-top:0.5rem">' + res.errors.map(escapeHtml).join('<br>') + '</div>';
+        }
+        document.getElementById('rt-result-meta').innerHTML = metaHtml;
+
+        // Stages used
+        if (res.stagesUsed) {
+            var stageColors = { IndexRetriever: 'badge-blue', DocumentRetriever: 'badge-green', FixupRetriever: 'badge-amber', PaginationRetriever: 'badge-purple', FacetRetriever: 'badge-gray', SummarizationRetriever: 'badge-red' };
+            var stagesHtml = '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center"><strong style="font-size:0.8rem;color:#64748b">Pipeline:</strong>';
+            res.stagesUsed.forEach(function(s, i) {
+                if (i > 0) stagesHtml += '<span style="color:#94a3b8">→</span>';
+                stagesHtml += '<span class="badge ' + (stageColors[s] || 'badge-gray') + '">' + escapeHtml(s) + '</span>';
+            });
+            stagesHtml += '</div>';
+            document.getElementById('rt-result-stages').innerHTML = stagesHtml;
+        }
+
+        // Facets
+        try {
+            if (res.facets && Object.keys(res.facets).length > 0) {
+                var facetsHtml = '<div style="display:flex;gap:1rem;flex-wrap:wrap">';
+                for (var dim in res.facets) {
+                    var f = res.facets[dim];
+                    facetsHtml += '<div style="background:white;border:1px solid #e2e8f0;border-radius:0.375rem;padding:0.5rem;min-width:180px">';
+                    facetsHtml += '<strong style="font-size:0.85rem;color:#1e293b">' + escapeHtml(dim) + '</strong>';
+                    facetsHtml += '<div style="font-size:0.7rem;color:#94a3b8;margin-bottom:0.25rem">' + (f.totalCount || 0) + ' total</div>';
+                    if (f.values && f.values.length > 0) {
+                        f.values.forEach(function(v) {
+                            facetsHtml += '<div style="display:flex;justify-content:space-between;font-size:0.8rem;padding:0.15rem 0;border-bottom:1px solid #f1f5f9;cursor:pointer" '
+                                + 'onclick="rtAddFacetConstraint(\'' + escapeHtml(dim) + '\',\'' + escapeHtml(String(v.value)).replace(/'/g,"\\'") + '\')" '
+                                + 'title="Click to add as query constraint">'
+                                + '<span style="color:#1d4ed8">' + escapeHtml(String(v.value)) + '</span>'
+                                + '<span class="badge badge-blue" style="margin-left:0.5rem">' + v.count + '</span></div>';
+                        });
+                    }
+                    facetsHtml += '</div>';
+                }
+                facetsHtml += '</div>';
+                document.getElementById('rt-result-facets').innerHTML = facetsHtml;
+            }
+        } catch (facetErr) {
+            document.getElementById('rt-result-facets').innerHTML = '<span style="color:#dc2626;font-size:0.8rem">Facet render error: ' + escapeHtml(facetErr.message) + '</span>';
+        }
+
+        // Aggregates
+        try {
+            if (res.aggregates && res.aggregates.length > 0) {
+                var aggHtml = '';
+                res.aggregates.forEach(function(agg) {
+                    var label = (agg && agg._aggregate) ? agg._aggregate : 'aggregate';
+                    aggHtml += '<details style="margin-top:0.25rem"><summary style="cursor:pointer;font-size:0.8rem;color:#64748b">' + escapeHtml(label) + '</summary>';
+                    aggHtml += '<pre style="font-size:0.75rem;background:#f8fafc;padding:0.5rem;border-radius:0.25rem;overflow:auto;max-height:200px">' + escapeHtml(JSON.stringify(agg, null, 2)) + '</pre>';
+                    aggHtml += '</details>';
+                });
+                document.getElementById('rt-result-aggregates').innerHTML = aggHtml;
+            }
+        } catch (aggErr) {
+            document.getElementById('rt-result-aggregates').innerHTML = '<span style="color:#dc2626;font-size:0.8rem">Aggregate render error: ' + aggErr.message + '</span>';
+        }
+
+        // AI Summary — display prominently at the top of results
+        try {
+        if (res.contextAttributes && res.contextAttributes.aiSummary) {
+            var summaryText = res.contextAttributes.aiSummary;
+            var isOllama = summaryText.startsWith('[Ollama]');
+            var isExtractive = summaryText.startsWith('[Extractive]');
+            var cleanText = summaryText.replace(/^\[(Ollama|Extractive)\]\s*/, '');
+            var sourceLabel = isOllama ? 'LLM (Ollama)' : isExtractive ? 'Extractive (no LLM)' : 'AI';
+            var sourceBadge = isOllama ? 'badge-purple' : 'badge-amber';
+
+            document.getElementById('rt-result-summary').innerHTML =
+                '<div style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);border:2px solid #c4b5fd;border-radius:0.5rem;padding:1rem">'
+                + '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">'
+                + '<strong style="font-size:0.95rem;color:#5b21b6">Result Summary</strong>'
+                + '<span class="badge ' + sourceBadge + '">' + sourceLabel + '</span>'
+                + '</div>'
+                + '<p style="color:#1e293b;font-size:0.9rem;line-height:1.5;margin:0">' + escapeHtml(cleanText) + '</p>'
+                + '</div>';
+        }
+
+        // Context attributes (inter-stage metadata)
+        if (res.contextAttributes) {
+            var ctxHtml = '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;font-size:0.75rem">';
+            for (var k in res.contextAttributes) {
+                if (k === 'aiSummary') continue; // already shown above
+                var v = res.contextAttributes[k];
+                ctxHtml += '<span class="badge badge-gray">' + escapeHtml(k) + ': ' + escapeHtml(String(v)) + '</span>';
+            }
+            ctxHtml += '</div>';
+            document.getElementById('rt-result-context').innerHTML = ctxHtml;
+        }
+        } catch (sumErr) {
+            document.getElementById('rt-result-summary').innerHTML = '<span style="color:#dc2626;font-size:0.8rem">Summary/context render error: ' + escapeHtml(sumErr.message) + '</span>';
+        }
+
+        // Documents — pretty render with JSON toggle
+        rtLastDocs = res.documents;
+        rtRenderDocs(res.documents, rtViewMode);
+
+        // Show "not retrieved" for empty sections
+        if (!res.facets || Object.keys(res.facets).length === 0) {
+            document.getElementById('rt-result-facets').innerHTML = '<span style="color:#94a3b8;font-size:0.8rem">No facets retrieved. Add field names (e.g. department,classification) in the facets input above.</span>';
+        }
+        if (!res.contextAttributes || Object.keys(res.contextAttributes).length === 0) {
+            document.getElementById('rt-result-context').innerHTML = '<span style="color:#94a3b8;font-size:0.8rem">No context attributes</span>';
+        }
+        if (!res.contextAttributes || !res.contextAttributes.aiSummary) {
+            if (document.getElementById('rt-summarize-enabled').checked) {
+                document.getElementById('rt-result-summary').innerHTML = '<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:0.375rem;padding:0.75rem;font-size:0.85rem;color:#92400e">Summarization was requested but no summary was generated. Check that Ollama is running or the extractive fallback produced content.</div>';
+            }
+        }
+
+        // Raw response JSON (collapsible)
+        document.getElementById('rt-result-raw').textContent = JSON.stringify(res, null, 2);
+
+    } catch (e) {
+        document.getElementById('rt-result-docs').innerHTML = '<div class="status-msg status-err">' + escapeHtml(e.message) + '</div>';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Execute Pipeline';
+    }
+}
+
+// ─── Git Tools ───────────────────────────────────────────────────
+
+var gtSelectedRepo = -1;
+var gtRepos = [];
+
+async function gtLoadStatus() {
+    try {
+        var data = await fetch('/api/gittools/status').then(r => r.json());
+        if (data.cachedRepos > 0) {
+            gtRefreshRepos();
+        }
+    } catch(e) {}
+}
+
+async function gtScan() {
+    var root = document.getElementById('gt-scan-root').value.trim();
+    if (!root) return;
+    document.getElementById('gt-status').innerHTML = '<span class="loading"></span> Scanning...';
+    try {
+        var data = await fetch('/api/gittools/scan', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ roots: [root], maxDepth: 4 })
+        }).then(r => r.json());
+        gtRepos = data.repos || [];
+        document.getElementById('gt-status').innerHTML = '<div class="status-msg status-ok">Found <strong>' + data.count + '</strong> repositories</div>';
+        gtRenderRepos(gtRepos);
+        gtLoadTags();
+    } catch(e) {
+        document.getElementById('gt-status').innerHTML = '<div class="status-msg status-err">' + escapeHtml(e.message) + '</div>';
+    }
+}
+
+async function gtRefreshRepos() {
+    try {
+        var sort = document.getElementById('gt-sort').value;
+        var tag = document.getElementById('gt-tag-filter').value;
+        var url = '/api/gittools/repos?sort=' + sort;
+        if (tag) url += '&tag=' + encodeURIComponent(tag);
+        gtRepos = await fetch(url).then(r => r.json());
+        gtRenderRepos(gtRepos);
+    } catch(e) {}
+}
+
+function gtFilterByTag() { gtRefreshRepos(); }
+function gtSort() { gtRefreshRepos(); }
+
+async function gtLoadTags() {
+    try {
+        var tags = await fetch('/api/gittools/tags').then(r => r.json());
+        var sel = document.getElementById('gt-tag-filter');
+        sel.innerHTML = '<option value="">All</option>';
+        tags.forEach(function(t) {
+            var opt = document.createElement('option');
+            opt.value = t; opt.textContent = t;
+            sel.appendChild(opt);
+        });
+    } catch(e) {}
+}
+
+function gtRenderRepos(repos) {
+    var html = '<table style="width:100%;border-collapse:collapse;font-size:0.8rem">';
+    html += '<tr style="background:#f1f5f9;font-weight:600;position:sticky;top:0">'
+        + '<td style="padding:0.35rem 0.5rem">Name</td>'
+        + '<td style="padding:0.35rem 0.5rem">Branch</td>'
+        + '<td style="padding:0.35rem 0.5rem">Last Commit</td>'
+        + '<td style="padding:0.35rem 0.5rem">Tags</td>'
+        + '<td style="padding:0.35rem 0.5rem">Actions</td></tr>';
+    repos.forEach(function(r, i) {
+        var selected = (i === gtSelectedRepo) ? 'background:#eff6ff;' : '';
+        html += '<tr style="border-top:1px solid #f1f5f9;cursor:pointer;' + selected + '" onclick="gtSelectRepo(' + r.index + ')">';
+        html += '<td style="padding:0.35rem 0.5rem"><strong>' + escapeHtml(r.name) + '</strong>';
+        if (r.description) html += '<br><span style="color:#64748b;font-size:0.7rem">' + escapeHtml(r.description) + '</span>';
+        html += '</td>';
+        html += '<td style="padding:0.35rem 0.5rem"><span class="badge badge-blue">' + escapeHtml(r.currentBranch || '?') + '</span></td>';
+        html += '<td style="padding:0.35rem 0.5rem;font-size:0.75rem">';
+        if (r.lastCommitMessage) html += escapeHtml(r.lastCommitMessage.substring(0, 50));
+        if (r.lastCommitAuthor) html += '<br><span style="color:#94a3b8">' + escapeHtml(r.lastCommitAuthor) + '</span>';
+        html += '</td>';
+        html += '<td style="padding:0.35rem 0.5rem">';
+        if (r.tags) r.tags.forEach(function(t) { html += '<span class="badge badge-amber" style="font-size:0.65rem">' + escapeHtml(t) + '</span> '; });
+        html += '</td>';
+        html += '<td style="padding:0.35rem 0.5rem">'
+            + '<button class="btn-secondary" style="font-size:0.65rem;padding:0.1rem 0.3rem" onclick="event.stopPropagation();gtAddTag(' + r.index + ')">+Tag</button>'
+            + '</td>';
+        html += '</tr>';
+    });
+    html += '</table>';
+    document.getElementById('gt-repo-list').innerHTML = html;
+}
+
+function gtSelectRepo(index) {
+    gtSelectedRepo = index;
+    document.getElementById('gt-commit-btn').disabled = false;
+    gtRenderRepos(gtRepos);
+    gtLoadCommits();
+}
+
+async function gtAddTag(index) {
+    var tag = prompt('Enter tag name:');
+    if (!tag) return;
+    await fetch('/api/gittools/repos/' + index + '/tag', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ tag: tag })
+    });
+    gtScan(); // refresh
+}
+
+async function gtLoadCommits() {
+    if (gtSelectedRepo < 0) return;
+    var el = document.getElementById('gt-commit-list');
+    el.innerHTML = '<span class="loading"></span> Loading commits...';
+    var max = parseInt(document.getElementById('gt-commit-max').value) || 20;
+    var author = document.getElementById('gt-commit-author').value || null;
+    var msg = document.getElementById('gt-commit-msg').value || null;
+    var url = '/api/gittools/repos/' + gtSelectedRepo + '/commits?maxCount=' + max;
+    if (author) url += '&author=' + encodeURIComponent(author);
+    if (msg) url += '&message=' + encodeURIComponent(msg);
+    try {
+        var commits = await fetch(url).then(r => r.json());
+        var html = '';
+        commits.forEach(function(c) {
+            html += '<details style="margin-bottom:0.25rem;border-bottom:1px solid #f1f5f9">'
+                + '<summary style="cursor:pointer;font-size:0.8rem;padding:0.25rem 0">'
+                + '<span class="badge badge-gray" style="font-size:0.65rem;font-family:monospace">' + escapeHtml(c.shortHash) + '</span> '
+                + escapeHtml(c.message.substring(0, 80))
+                + ' <span style="color:#94a3b8;font-size:0.7rem">' + escapeHtml(c.author) + '</span>'
+                + '</summary>'
+                + '<div style="padding:0.25rem 0 0.5rem 1rem;font-size:0.75rem">'
+                + '<div>Hash: <code>' + escapeHtml(c.hash) + '</code></div>'
+                + '<div>Author: ' + escapeHtml(c.author) + ' &lt;' + escapeHtml(c.authorEmail || '') + '&gt;</div>'
+                + '<div>Date: ' + (c.date || '') + '</div>'
+                + '<button class="btn-secondary" style="font-size:0.7rem;margin-top:0.25rem" onclick="gtViewDiff(' + gtSelectedRepo + ',\'' + escapeHtml(c.hash) + '\')">View Diff</button>'
+                + '</div></details>';
+        });
+        el.innerHTML = html || '<span style="color:#94a3b8">No commits found.</span>';
+    } catch(e) {
+        el.innerHTML = '<div class="status-msg status-err">' + escapeHtml(e.message) + '</div>';
+    }
+}
+
+async function gtViewDiff(index, hash) {
+    try {
+        var data = await fetch('/api/gittools/repos/' + index + '/commits/' + hash + '/diff').then(r => r.json());
+        if (data.error) { alert(data.error); return; }
+        var w = window.open('', '_blank');
+        w.document.write('<pre style="font-family:monospace;font-size:12px;padding:1rem">' + data.diff.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</pre>');
+    } catch(e) { alert(e.message); }
+}
+
+// ─── Init ─────────────────────────────────────────────────────────
+loadStatus();
+loadTypes();
+checkSearchStatus();
+populateTypeSelector();
+</script>
+</body>
+</html>

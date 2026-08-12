@@ -40,6 +40,16 @@
     </repositories>
 
     <dependencies>
+        <dependency>
+            <groupId>com.hitorro</groupId>
+            <artifactId>hitorro-streams</artifactId>
+            <version>3.0.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.hitorro</groupId>
+            <artifactId>hitorro-basefile</artifactId>
+            <version>3.0.1</version>
+        </dependency>
         <!-- Spring Boot Web -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -65,9 +75,7 @@
 
         <!-- HiTorro Index - Lucene-based indexing and search -->
         <dependency>
-            <groupId>com.hitorro</groupId>
-            <artifactId>hitorro-index</artifactId>
-            <version>3.0.0</version>
+            <groupId>com.hitorro</groupId><artifactId>hitorro-index</artifactId><version>3.0.1</version>
         </dependency>
 
         <!-- HiTorro KVStore - RocksDB key-value store -->
@@ -79,9 +87,7 @@
 
         <!-- HiTorro Lucene Viewer - index inspection utility -->
         <dependency>
-            <groupId>com.hitorro</groupId>
-            <artifactId>hitorro-luceneviewer</artifactId>
-            <version>3.0.0</version>
+            <groupId>com.hitorro</groupId><artifactId>hitorro-luceneviewer</artifactId><version>3.0.1</version>
         </dependency>
 
         <!-- HiTorro Unit Time - performance benchmarking toolkit -->
@@ -110,16 +116,12 @@
 
         <!-- HiTorro Retrieval - pipeline for chaining search, fetch, enrich, paginate -->
         <dependency>
-            <groupId>com.hitorro</groupId>
-            <artifactId>hitorro-retrieval</artifactId>
-            <version>3.0.0</version>
+            <groupId>com.hitorro</groupId><artifactId>hitorro-retrieval</artifactId><version>3.0.1</version>
         </dependency>
 
         <!-- HiTorro Git Tools - repository management, PR benchmarking -->
         <dependency>
-            <groupId>com.hitorro</groupId>
-            <artifactId>hitorro-gittools</artifactId>
-            <version>3.0.0</version>
+            <groupId>com.hitorro</groupId><artifactId>hitorro-gittools</artifactId><version>3.0.1</version>
         </dependency>
 
         <!-- Spring Boot Test -->

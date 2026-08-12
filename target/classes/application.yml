@@ -1,0 +1,13 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: hitorro-jvs-example
+  groovy:
+    template:
+      check-template-location: false
+
+logging:
+  level:
+    com.hitorro: INFO
