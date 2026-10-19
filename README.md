@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="Hitorro JVS Example Springboot logo" width="180">
+</p>
+
 # HiTorro JVS Spring Boot Example
 
 A comprehensive Spring Boot application demonstrating the **hitorro-jsontypesystem** library with integrated Lucene search, RocksDB document storage, multi-language NLP enrichment, NER (Named Entity Recognition via MaxEnt and ONNX transformer models), AI-powered translation, feature extraction, performance benchmarking, and NDJSON document processing pipelines.
