@@ -1,8 +1,8 @@
 package com.hitorro.jvs.example;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.JsonNodeFactory;
+import tools.jackson.databind.node.ObjectNode;
 import com.hitorro.index.ExampleDatasets;
 import com.hitorro.index.IndexManager;
 import com.hitorro.index.config.IndexConfig;
@@ -43,6 +43,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import com.hitorro.util.json.JsonValues;
 
 /**
  * REST controller demonstrating the hitorro-retrieval pipeline module.
@@ -132,21 +133,21 @@ public class RetrievalController {
         var metaNode = type.getMetaNode();
         if (metaNode != null && metaNode.has("fields") && metaNode.get("fields").isArray()) {
             for (var fn : metaNode.get("fields")) {
-                String name = fn.has("name") ? fn.get("name").asText() : null;
+                String name = fn.has("name") ? JsonValues.asText(fn.get("name")) : null;
                 if (name == null) continue;
                 String fullPath = prefix.isEmpty() ? name : prefix + "." + name;
-                String fieldType = fn.has("type") ? fn.get("type").asText() : "core_string";
+                String fieldType = fn.has("type") ? JsonValues.asText(fn.get("type")) : "core_string";
                 boolean isMls = "core_mls".equals(fieldType);
-                boolean isVector = fn.has("vector") && fn.get("vector").asBoolean();
+                boolean isVector = fn.has("vector") && JsonValues.asBoolean(fn.get("vector"));
 
                 // Check if field has index groups
                 boolean indexed = false;
                 String method = null;
                 if (fn.has("groups") && fn.get("groups").isArray()) {
                     for (var g : fn.get("groups")) {
-                        if ("index".equals(g.has("name") ? g.get("name").asText() : "")) {
+                        if ("index".equals(g.has("name") ? JsonValues.asText(g.get("name")) : "")) {
                             indexed = true;
-                            method = g.has("method") ? g.get("method").asText() : null;
+                            method = g.has("method") ? JsonValues.asText(g.get("method")) : null;
                             break;
                         }
                     }
@@ -170,15 +171,15 @@ public class RetrievalController {
                     if (mlsElemType != null && mlsElemType.getMetaNode() != null
                             && mlsElemType.getMetaNode().has("fields")) {
                         for (var sf : mlsElemType.getMetaNode().get("fields")) {
-                            String sfName = sf.has("name") ? sf.get("name").asText() : null;
+                            String sfName = sf.has("name") ? JsonValues.asText(sf.get("name")) : null;
                             if (sfName == null || "lang".equals(sfName)) continue;
                             boolean sfIndexed = false;
                             String sfMethod = null;
                             if (sf.has("groups") && sf.get("groups").isArray()) {
                                 for (var sg : sf.get("groups")) {
-                                    if ("index".equals(sg.has("name") ? sg.get("name").asText() : "")) {
+                                    if ("index".equals(sg.has("name") ? JsonValues.asText(sg.get("name")) : "")) {
                                         sfIndexed = true;
-                                        sfMethod = sg.has("method") ? sg.get("method").asText() : null;
+                                        sfMethod = sg.has("method") ? JsonValues.asText(sg.get("method")) : null;
                                         break;
                                     }
                                 }
@@ -294,9 +295,9 @@ public class RetrievalController {
             // body can be a single doc, array, or {"source": "dataset", "enrichTags": "basic,ner"}
             List<JVS> docs;
             String enrichTags = null;
-            if (body.has("source") && "dataset".equals(body.get("source").asText())) {
+            if (body.has("source") && "dataset".equals(JsonValues.asText(body.get("source")))) {
                 docs = pipelineService.readDataset().stream().map(JVS::new).toList();
-                if (body.has("enrichTags")) enrichTags = body.get("enrichTags").asText();
+                if (body.has("enrichTags")) enrichTags = JsonValues.asText(body.get("enrichTags"));
             } else if (body.isArray()) {
                 docs = new ArrayList<>();
                 for (JsonNode node : body) {
@@ -307,7 +308,7 @@ public class RetrievalController {
                 for (JsonNode node : body.get("documents")) {
                     docs.add(new JVS(node));
                 }
-                if (body.has("enrichTags")) enrichTags = body.get("enrichTags").asText();
+                if (body.has("enrichTags")) enrichTags = JsonValues.asText(body.get("enrichTags"));
             } else {
                 docs = List.of(new JVS(body));
             }
@@ -493,7 +494,7 @@ public class RetrievalController {
             List<String> indexNames = new ArrayList<>();
             if (body.has("indexNames") && body.get("indexNames").isArray()) {
                 for (JsonNode n : body.get("indexNames")) {
-                    String name = n.asText();
+                    String name = JsonValues.asText(n);
                     if (indexManager.hasIndex(name)) indexNames.add(name);
                 }
             }
@@ -502,18 +503,18 @@ public class RetrievalController {
                 return ResponseEntity.badRequest().body(result);
             }
 
-            String query = body.has("query") ? body.get("query").asText() : "*:*";
-            int offset = body.has("offset") ? body.get("offset").asInt() : 0;
-            int limit = body.has("limit") ? body.get("limit").asInt() : 20;
-            String lang = body.has("lang") ? body.get("lang").asText() : "en";
+            String query = body.has("query") ? JsonValues.asText(body.get("query")) : "*:*";
+            int offset = body.has("offset") ? JsonValues.asInt(body.get("offset")) : 0;
+            int limit = body.has("limit") ? JsonValues.asInt(body.get("limit")) : 20;
+            String lang = body.has("lang") ? JsonValues.asText(body.get("lang")) : "en";
 
-            boolean useKvStore = body.has("useKvStore") && body.get("useKvStore").asBoolean();
-            String mergerName = body.has("merger") ? body.get("merger").asText() : "score";
+            boolean useKvStore = body.has("useKvStore") && JsonValues.asBoolean(body.get("useKvStore"));
+            String mergerName = body.has("merger") ? JsonValues.asText(body.get("merger")) : "score";
 
             // Extract facet dimensions
             List<String> facetDims = null;
             if (body.has("facets")) {
-                String facetStr = body.get("facets").asText();
+                String facetStr = JsonValues.asText(body.get("facets"));
                 if (facetStr != null && !facetStr.isBlank()) {
                     facetDims = List.of(facetStr.split(","));
                 }
@@ -606,7 +607,7 @@ public class RetrievalController {
         long start = System.currentTimeMillis();
 
         try {
-            String indexName = body.has("indexName") ? body.get("indexName").asText() : null;
+            String indexName = body.has("indexName") ? JsonValues.asText(body.get("indexName")) : null;
             if (indexName == null || !indexManager.hasIndex(indexName)) {
                 result.put("error", "Index not found: " + indexName);
                 return ResponseEntity.badRequest().body(result);
@@ -621,7 +622,7 @@ public class RetrievalController {
             if (meta != null && meta.typeName != null && jvsService.isTypeSystemAvailable()) {
                 type = JsonTypeSystem.getMe().getType(meta.typeName);
             }
-            String lang = body.has("lang") ? body.get("lang").asText() : "en";
+            String lang = body.has("lang") ? JsonValues.asText(body.get("lang")) : "en";
 
             // Create retrieval service with pluggable providers
             SearchProvider searchProvider;
@@ -726,7 +727,7 @@ public class RetrievalController {
     executeRetrievalStream(@RequestBody JsonNode body) {
         org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody streamBody = outputStream -> {
             try {
-                String indexName = body.has("indexName") ? body.get("indexName").asText() : null;
+                String indexName = body.has("indexName") ? JsonValues.asText(body.get("indexName")) : null;
                 if (indexName == null || !indexManager.hasIndex(indexName)) return;
 
                 JVS query = new JVS(body.get("query"));
@@ -735,7 +736,7 @@ public class RetrievalController {
                 if (meta != null && meta.typeName != null && jvsService.isTypeSystemAvailable()) {
                     type = JsonTypeSystem.getMe().getType(meta.typeName);
                 }
-                String lang = body.has("lang") ? body.get("lang").asText() : "en";
+                String lang = body.has("lang") ? JsonValues.asText(body.get("lang")) : "en";
 
                 SearchProvider searchProvider = useRemoteTransport
                         ? new com.hitorro.retrieval.search.RemoteSearchProvider(
@@ -752,7 +753,7 @@ public class RetrievalController {
                 RetrievalConfig config = new RetrievalConfig(indexName, type, lang);
                 RetrievalResult retrievalResult = service.retrieve(config, query);
 
-                var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                var mapper = com.hitorro.util.json.JsonMappers.json();
                 var writer = new java.io.OutputStreamWriter(outputStream, java.nio.charset.StandardCharsets.UTF_8);
 
                 // Write metadata line
@@ -1018,7 +1019,7 @@ public class RetrievalController {
                     if (Boolean.TRUE.equals(status.get("available"))) {
                         String prompt = "Summarize the following search results in " + maxWords + " words or fewer. "
                                 + "Focus on the key themes and important findings:\n\n" + text;
-                        var body = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode();
+                        var body = tools.jackson.databind.node.JsonNodeFactory.instance.objectNode();
                         body.put("model", (String) status.getOrDefault("model", "llama3.2"));
                         body.put("prompt", prompt);
                         body.put("stream", false);
@@ -1030,9 +1031,9 @@ public class RetrievalController {
                                 .POST(java.net.http.HttpRequest.BodyPublishers.ofString(body.toString()))
                                 .build();
                         var response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
-                        var responseJson = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.body());
+                        var responseJson = com.hitorro.util.json.JsonMappers.json().readTree(response.body());
                         if (responseJson.has("response")) {
-                            return "[Ollama] " + responseJson.get("response").asText().trim();
+                            return "[Ollama] " + JsonValues.asText(responseJson.get("response")).trim();
                         }
                     }
                 } catch (Exception e) {

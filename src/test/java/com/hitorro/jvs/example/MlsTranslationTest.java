@@ -1,8 +1,8 @@
 package com.hitorro.jvs.example;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.JsonNodeFactory;
+import tools.jackson.databind.node.ObjectNode;
 import com.hitorro.jsontypesystem.JVS;
 import com.hitorro.jsontypesystem.JVS2JVSTranslationMapper;
 import com.hitorro.util.json.keys.propaccess.Propaccess;
@@ -149,8 +149,8 @@ class MlsTranslationTest {
                 for (int i = 0; i < mls.size(); i++) {
                     JsonNode elem = mls.get(i);
                     assertThat(elem.isObject()).as("%s.mls[%d] is object", field, i).isTrue();
-                    assertThat(elem.get("lang").isTextual()).as("%s.mls[%d].lang is string", field, i).isTrue();
-                    assertThat(elem.get("text").isTextual()).as("%s.mls[%d].text is string", field, i).isTrue();
+                    assertThat(elem.get("lang").isString()).as("%s.mls[%d].lang is string", field, i).isTrue();
+                    assertThat(elem.get("text").isString()).as("%s.mls[%d].text is string", field, i).isTrue();
                 }
 
                 assertThat(mls.get(0).get("lang").asText()).isEqualTo("en");

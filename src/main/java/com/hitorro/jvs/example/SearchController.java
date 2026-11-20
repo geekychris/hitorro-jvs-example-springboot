@@ -1,10 +1,11 @@
 package com.hitorro.jvs.example;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
+import com.hitorro.util.json.JsonValues;
 
 @RestController
 @RequestMapping("/api/jvs/search")
@@ -26,10 +27,10 @@ public class SearchController {
             String targetLangs = null;
             if (request != null) {
                 if (request.has("enrichTags")) {
-                    enrichTags = request.get("enrichTags").asText("");
+                    enrichTags = JsonValues.asText(request.get("enrichTags"), "");
                 }
                 if (request.has("targetLangs")) {
-                    targetLangs = request.get("targetLangs").asText("");
+                    targetLangs = JsonValues.asText(request.get("targetLangs"), "");
                 }
             }
             return ResponseEntity.ok(searchService.indexDataset(enrichTags, targetLangs));

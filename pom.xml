@@ -24,7 +24,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
-        <hitorro.version>3.0.2</hitorro.version>
+        <hitorro.version>4.0.0</hitorro.version>
     </properties>
 
     <repositories>
@@ -106,13 +106,6 @@
                 <groupId>org.jline</groupId>
                 <artifactId>jline-terminal-jni</artifactId>
                 <version>3.30.17</version>
-            </dependency>
-            <dependency>
-                <groupId>com.fasterxml.jackson</groupId>
-                <artifactId>jackson-bom</artifactId>
-                <version>2.21.8</version>
-                <type>pom</type>
-                <scope>import</scope>
             </dependency>
             <dependency>
                 <groupId>io.netty</groupId>
@@ -435,7 +428,7 @@
         <dependency>
             <groupId>com.hitorro</groupId>
             <artifactId>hitorro-streams</artifactId>
-            <version>3.0.2</version>
+            <version>${hitorro.version}</version>
             <exclusions>
                 <exclusion><groupId>org.slf4j</groupId><artifactId>slf4j-reload4j</artifactId></exclusion>
             </exclusions>
@@ -443,7 +436,7 @@
         <dependency>
             <groupId>com.hitorro</groupId>
             <artifactId>hitorro-basefile</artifactId>
-            <version>3.0.2</version>
+            <version>${hitorro.version}</version>
             <exclusions>
                 <exclusion><groupId>org.slf4j</groupId><artifactId>slf4j-reload4j</artifactId></exclusion>
             </exclusions>
@@ -452,13 +445,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc</artifactId>
-        </dependency>
-        <!-- Keep Jackson 2 (com.fasterxml.jackson) for HTTP JSON: the HiTorro
-             libraries hand JsonNode values from Jackson 2 to the controllers.
-             Selected with spring.http.converters.preferred-json-mapper=jackson2. -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-jackson2</artifactId>
         </dependency>
 
         <!-- HiTorro JVS - Type system, projections, and NLP -->
@@ -480,7 +466,7 @@
 
         <!-- HiTorro Index - Lucene-based indexing and search -->
         <dependency>
-            <groupId>com.hitorro</groupId><artifactId>hitorro-index</artifactId><version>3.0.2</version>
+            <groupId>com.hitorro</groupId><artifactId>hitorro-index</artifactId><version>${hitorro.version}</version>
             <exclusions>
                 <exclusion><groupId>org.slf4j</groupId><artifactId>slf4j-reload4j</artifactId></exclusion>
             </exclusions>
@@ -490,7 +476,7 @@
         <dependency>
             <groupId>com.hitorro</groupId>
             <artifactId>hitorro-kvstore</artifactId>
-            <version>3.0.2</version>
+            <version>${hitorro.version}</version>
             <exclusions>
                 <exclusion><groupId>org.slf4j</groupId><artifactId>slf4j-reload4j</artifactId></exclusion>
             </exclusions>
@@ -498,7 +484,7 @@
 
         <!-- HiTorro Lucene Viewer - index inspection utility -->
         <dependency>
-            <groupId>com.hitorro</groupId><artifactId>hitorro-luceneviewer</artifactId><version>3.0.2</version>
+            <groupId>com.hitorro</groupId><artifactId>hitorro-luceneviewer</artifactId><version>${hitorro.version}</version>
             <exclusions>
                 <exclusion><groupId>org.slf4j</groupId><artifactId>slf4j-reload4j</artifactId></exclusion>
             </exclusions>
@@ -508,7 +494,7 @@
         <dependency>
             <groupId>com.hitorro</groupId>
             <artifactId>hitorro-unittime</artifactId>
-            <version>3.0.2</version>
+            <version>${hitorro.version}</version>
             <exclusions>
                 <exclusion><groupId>org.slf4j</groupId><artifactId>slf4j-reload4j</artifactId></exclusion>
             </exclusions>
@@ -518,7 +504,7 @@
         <dependency>
             <groupId>com.hitorro</groupId>
             <artifactId>hitorro-features</artifactId>
-            <version>3.0.2</version>
+            <version>${hitorro.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>
@@ -533,7 +519,7 @@
 
         <!-- HiTorro Retrieval - pipeline for chaining search, fetch, enrich, paginate -->
         <dependency>
-            <groupId>com.hitorro</groupId><artifactId>hitorro-retrieval</artifactId><version>3.0.2</version>
+            <groupId>com.hitorro</groupId><artifactId>hitorro-retrieval</artifactId><version>${hitorro.version}</version>
             <exclusions>
                 <exclusion><groupId>org.slf4j</groupId><artifactId>slf4j-reload4j</artifactId></exclusion>
             </exclusions>
@@ -541,7 +527,7 @@
 
         <!-- HiTorro Git Tools - repository management, PR benchmarking -->
         <dependency>
-            <groupId>com.hitorro</groupId><artifactId>hitorro-gittools</artifactId><version>3.0.2</version>
+            <groupId>com.hitorro</groupId><artifactId>hitorro-gittools</artifactId><version>${hitorro.version}</version>
             <exclusions>
                 <exclusion><groupId>org.slf4j</groupId><artifactId>slf4j-reload4j</artifactId></exclusion>
             </exclusions>

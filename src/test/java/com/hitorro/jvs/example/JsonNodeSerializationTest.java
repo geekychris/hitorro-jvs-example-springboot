@@ -16,15 +16,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Spring Boot 4 uses Jackson 3 (tools.jackson) for HTTP by default. The HiTorro
- * libraries return Jackson 2 (com.fasterxml.jackson) JsonNode values, which
- * Jackson 3 would serialize as a Java bean (nodeType, valueNode, ...). The app
- * selects the Jackson 2 converter with spring.http.converters.preferred-json-mapper;
- * this test proves a controller returning a Jackson 2 JsonNode writes plain JSON.
+ * The HiTorro libraries return Jackson 3 (tools.jackson) JsonNode values, the same Jackson Boot 4 uses
+ * for HTTP. Before 4.0.0 they were Jackson 2 nodes, which Jackson 3 would have serialized as a Java bean
+ * (nodeType, valueNode, ...), so the app used the Jackson 2 converter. This test proves a controller
+ * returning a JsonNode writes plain JSON.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
-@DisplayName("Jackson 2 JsonNode responses serialize as plain JSON")
+@DisplayName("JsonNode responses serialize as plain JSON")
 class JsonNodeSerializationTest {
 
     @Autowired
