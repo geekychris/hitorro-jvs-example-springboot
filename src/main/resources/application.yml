@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: hitorro-jvs-example
+  # Boot 4 defaults to Jackson 3; HiTorro returns Jackson 2 JsonNode values.
+  http:
+    converters:
+      preferred-json-mapper: jackson2
   groovy:
     template:
       check-template-location: false
