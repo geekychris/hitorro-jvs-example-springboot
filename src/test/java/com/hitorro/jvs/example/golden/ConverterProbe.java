@@ -88,6 +88,27 @@ public final class ConverterProbe {
         w.put("optional-present", Optional.of("x"));
         w.put("optional-empty", Optional.empty());
         w.put("enum", Color.GREEN);
+        w.put("locale", java.util.Locale.CANADA_FRENCH);
+        w.put("locale-map-key", Map.of(java.util.Locale.CANADA_FRENCH, 1));
+        w.put("zoned-date-time", java.time.ZonedDateTime.of(2026, 11, 20, 13, 45, 30, 0, java.time.ZoneId.of("America/Los_Angeles")));
+        w.put("local-time", java.time.LocalTime.of(13, 45, 30, 1_000_000));
+        w.put("year-month", java.time.YearMonth.of(2026, 11));
+        w.put("period", java.time.Period.of(1, 2, 3));
+        w.put("zone-id", java.time.ZoneId.of("Europe/Berlin"));
+        w.put("sql-timestamp", new java.sql.Timestamp(1_700_000_000_123L));
+        w.put("calendar", calendar());
+        w.put("uri", java.net.URI.create("https://example.com/a?b=c"));
+        w.put("path", java.nio.file.Path.of("/tmp/x"));
+        w.put("file", new java.io.File("/tmp/x"));
+        w.put("class", String.class);
+        w.put("pattern", java.util.regex.Pattern.compile("a+b"));
+        w.put("atomic", new java.util.concurrent.atomic.AtomicLong(5));
+        w.put("charset", java.nio.charset.StandardCharsets.UTF_8);
+        w.put("currency", java.util.Currency.getInstance("EUR"));
+        w.put("time-zone", java.util.TimeZone.getTimeZone("UTC"));
+        w.put("inet", java.net.InetAddress.getLoopbackAddress());
+        w.put("stream-of-ints", java.util.stream.IntStream.range(0, 3).boxed().toList());
+        w.put("set", new java.util.LinkedHashSet<>(List.of("b", "a")));
         w.put("uuid", UUID.fromString("123e4567-e89b-12d3-a456-426614174000"));
         w.put("bytes", new byte[]{1, 2, 3, (byte) 255});
         w.put("chars", new char[]{'h', 'i'});
@@ -136,6 +157,7 @@ public final class ConverterProbe {
         r.put("target-duplicate-keys", "{\"count\":1,\"count\":2}");
         r.put("target-nan", "{\"ratio\":NaN}");
         r.put("target-empty", "");
+        r.put("target-locale-style-instant", "{\"when\":\"2026-11-20T13:45:30.123+01:00\"}");
         for (var e : r.entrySet()) g.put("converter-read " + e.getKey(), GoldenRecorder.read(c, Target.class, e.getValue()));
 
         Map<String, String> m = new LinkedHashMap<>();
@@ -154,6 +176,12 @@ public final class ConverterProbe {
             String got = GoldenRecorder.read(c, Map.class, e.getValue());
             g.put("converter-read-map " + e.getKey(), shorten(got));
         }
+    }
+
+    private static java.util.Calendar calendar() {
+        java.util.Calendar c = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"));
+        c.setTimeInMillis(1_700_000_000_123L);
+        return c;
     }
 
     private static String shorten(String s) {

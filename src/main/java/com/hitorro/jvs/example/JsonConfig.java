@@ -2,10 +2,15 @@ package com.hitorro.jvs.example;
 
 import com.hitorro.util.json.JsonMappers;
 import org.springframework.boot.jackson.autoconfigure.JsonFactoryBuilderCustomizer;
+import org.springframework.boot.jackson.autoconfigure.JsonMapperBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import tools.jackson.databind.module.SimpleModule;
+import tools.jackson.databind.ser.std.ToStringSerializer;
+
+import java.util.Locale;
 
 /**
  * Keeps the REST/JSON format the app had on Jackson 2.
@@ -18,6 +23,10 @@ import org.springframework.core.annotation.Order;
  * limit, so this customizer applies hitorro-core's Jackson 2.18 limits and factory defaults, the same
  * ones {@link JsonMappers#builder()} uses. It runs after Boot's own factory customizer, which sets the
  * limits from {@code spring.jackson.factory.constraints.*}.
+ *
+ * <p>Jackson 3 also writes a {@link Locale} as its language tag ({@code "fr-CA"}) where Jackson 2 wrote
+ * {@code toString()} ({@code "fr_CA"}), and no feature switches it back, so a serializer restores it
+ * (as the hitorro-spring-boot starter does).
  */
 @Configuration(proxyBeanMethods = false)
 public class JsonConfig {
@@ -28,5 +37,11 @@ public class JsonConfig {
         return builder -> builder.configureForJackson2()
                 .streamReadConstraints(JsonMappers.JACKSON2_READ_CONSTRAINTS)
                 .streamWriteConstraints(JsonMappers.JACKSON2_WRITE_CONSTRAINTS);
+    }
+
+    @Bean
+    JsonMapperBuilderCustomizer jackson2LocaleFormat() {
+        return builder -> builder.addModule(new SimpleModule("jackson2-locale")
+                .addSerializer(Locale.class, ToStringSerializer.instance));
     }
 }
