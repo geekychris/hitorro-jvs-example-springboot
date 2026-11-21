@@ -1,7 +1,8 @@
 package com.hitorro.jvs.example;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import com.hitorro.util.json.JsonMappers;
 import com.hitorro.index.search.SearchResult;
 import com.hitorro.index.stream.SearchResponseStream;
 import com.hitorro.jsontypesystem.JVS;
@@ -73,7 +74,7 @@ public class WireTransportController {
                 var result = searchResponse.getBody();
                 if (result == null) return;
 
-                ObjectMapper mapper = new ObjectMapper();
+                ObjectMapper mapper = JsonMappers.json();
                 var writer = new java.io.OutputStreamWriter(outputStream, java.nio.charset.StandardCharsets.UTF_8);
 
                 // Line 1: metadata

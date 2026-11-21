@@ -1,9 +1,9 @@
 package com.hitorro.jvs.example;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.JsonNodeFactory;
+import tools.jackson.databind.node.ObjectNode;
 import com.hitorro.jsontypesystem.Field;
 import com.hitorro.jsontypesystem.Group;
 import com.hitorro.jsontypesystem.JVS;
@@ -27,6 +27,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import com.hitorro.util.json.JsonValues;
 
 @Service
 public class JvsService {
@@ -73,7 +74,7 @@ public class JvsService {
             }
 
             // Initialize properties for both GlobalProperties (hitorro-core) and JVSProperties (jsontypesystem)
-            com.fasterxml.jackson.databind.node.ObjectNode coreProps = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode();
+            tools.jackson.databind.node.ObjectNode coreProps = tools.jackson.databind.node.JsonNodeFactory.instance.objectNode();
             if (htBin != null) {
                 coreProps.put("HT_BIN", htBin);
                 coreProps.put("HT_HOME", htBin);
@@ -156,18 +157,18 @@ public class JvsService {
 
     private Map<String, Object> describeFieldNode(JsonNode fn) {
         Map<String, Object> info = new LinkedHashMap<>();
-        info.put("name", fn.has("name") ? fn.get("name").asText() : "?");
-        if (fn.has("type")) info.put("type", fn.get("type").asText());
-        info.put("vector", fn.has("vector") && fn.get("vector").asBoolean());
-        info.put("i18n", fn.has("i18n") && fn.get("i18n").asBoolean());
+        info.put("name", fn.has("name") ? JsonValues.asText(fn.get("name")) : "?");
+        if (fn.has("type")) info.put("type", JsonValues.asText(fn.get("type")));
+        info.put("vector", fn.has("vector") && JsonValues.asBoolean(fn.get("vector")));
+        info.put("i18n", fn.has("i18n") && JsonValues.asBoolean(fn.get("i18n")));
         info.put("dynamic", fn.has("dynamic"));
         if (fn.has("dynamic")) {
             Map<String, Object> dynInfo = new LinkedHashMap<>();
             JsonNode dyn = fn.get("dynamic");
-            if (dyn.has("class")) dynInfo.put("className", dyn.get("class").asText());
+            if (dyn.has("class")) dynInfo.put("className", JsonValues.asText(dyn.get("class")));
             if (dyn.has("fields") && dyn.get("fields").isArray()) {
                 List<String> deps = new ArrayList<>();
-                dyn.get("fields").forEach(d -> deps.add(d.asText()));
+                dyn.get("fields").forEach(d -> deps.add(JsonValues.asText(d)));
                 dynInfo.put("dependsOn", deps);
             }
             info.put("dynamicInfo", dynInfo);
@@ -176,11 +177,11 @@ public class JvsService {
             List<Map<String, Object>> groups = new ArrayList<>();
             for (JsonNode gn : fn.get("groups")) {
                 Map<String, Object> gi = new LinkedHashMap<>();
-                if (gn.has("name")) gi.put("name", gn.get("name").asText());
-                if (gn.has("method")) gi.put("method", gn.get("method").asText());
+                if (gn.has("name")) gi.put("name", JsonValues.asText(gn.get("name")));
+                if (gn.has("method")) gi.put("method", JsonValues.asText(gn.get("method")));
                 if (gn.has("tags") && gn.get("tags").isArray()) {
                     List<String> tags = new ArrayList<>();
-                    gn.get("tags").forEach(t -> tags.add(t.asText()));
+                    gn.get("tags").forEach(t -> tags.add(JsonValues.asText(t)));
                     gi.put("tags", tags);
                 }
                 groups.add(gi);
@@ -363,7 +364,7 @@ public class JvsService {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
             JsonNode responseJson = new com.hitorro.util.json.String2JsonMapper().apply(response.body());
             if (responseJson != null && responseJson.has("response")) {
-                return responseJson.get("response").asText().trim();
+                return JsonValues.asText(responseJson.get("response")).trim();
             }
             return "[Translation unavailable - Ollama returned no response]";
         } catch (Exception e) {

@@ -21,7 +21,7 @@
  */
 package com.hitorro.jvs.example;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.hitorro.features.*;
 import com.hitorro.features.collections.BaseCollection;
 import com.hitorro.features.collections.FeatureCollectionContext;
@@ -38,6 +38,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import com.hitorro.util.json.JsonValues;
 
 /**
  * REST controller demonstrating feature extraction, indexing, and querying.
@@ -84,7 +85,7 @@ public class FeatureController {
 
     @PostMapping("/extract")
     public ResponseEntity<Map<String, Object>> extractFeatures(@RequestBody JsonNode document) {
-        long docId = document.has("id") ? document.get("id").asLong(0) : Math.abs(document.hashCode());
+        long docId = document.has("id") ? JsonValues.asLong(document.get("id"), 0) : Math.abs(document.hashCode());
         List<Map<String, Object>> features = extractFromDoc(document, docId);
         extractedStore.put(docId, features);
 
@@ -103,7 +104,7 @@ public class FeatureController {
         if (documents.isArray()) {
             int idx = 0;
             for (JsonNode doc : documents) {
-                long docId = doc.has("id") ? doc.get("id").asLong(0) : idx + 1;
+                long docId = doc.has("id") ? JsonValues.asLong(doc.get("id"), 0) : idx + 1;
                 List<Map<String, Object>> features = extractFromDoc(doc, docId);
                 extractedStore.put(docId, features);
                 totalFeatures += features.size();
@@ -266,15 +267,15 @@ public class FeatureController {
 
     private Object extractValue(FeatureDefinition feature, JsonNode doc) {
         return switch (feature.name()) {
-            case "field_count" -> { int c = 0; var fs = doc.fields(); while (fs.hasNext()) { fs.next(); c++; } yield c; }
-            case "title_length" -> { JsonNode t = doc.findValue("title"); yield t != null ? t.asText("").length() : 0; }
+            case "field_count" -> { int c = 0; var fs = doc.properties().iterator(); while (fs.hasNext()) { fs.next(); c++; } yield c; }
+            case "title_length" -> { JsonNode t = doc.findValue("title"); yield t != null ? JsonValues.asText(t, "").length() : 0; }
             case "word_count" -> {
-                String txt = doc.has("body") ? doc.get("body").asText("") : doc.has("text") ? doc.get("text").asText("") : doc.has("content") ? doc.get("content").asText("") : "";
+                String txt = doc.has("body") ? JsonValues.asText(doc.get("body"), "") : doc.has("text") ? JsonValues.asText(doc.get("text"), "") : doc.has("content") ? JsonValues.asText(doc.get("content"), "") : "";
                 yield txt.isBlank() ? 0 : txt.split("\\s+").length;
             }
             case "has_date" -> (doc.has("date") || doc.has("created") || doc.has("modified") || doc.has("publishDate") || doc.has("timestamp")) ? 1 : 0;
             case "depth" -> computeDepth(doc, 0);
-            case "has_array" -> { boolean a = false; var it = doc.fields(); while (it.hasNext()) { if (it.next().getValue().isArray()) { a = true; break; } } yield a ? 1 : 0; }
+            case "has_array" -> { boolean a = false; var it = doc.properties().iterator(); while (it.hasNext()) { if (it.next().getValue().isArray()) { a = true; break; } } yield a ? 1 : 0; }
             default -> null;
         };
     }
@@ -282,7 +283,7 @@ public class FeatureController {
     private int computeDepth(JsonNode node, int current) {
         if (!node.isObject() && !node.isArray()) return current;
         int max = current;
-        var it = node.elements();
+        var it = node.values().iterator();
         while (it.hasNext()) max = Math.max(max, computeDepth(it.next(), current + 1));
         return max;
     }

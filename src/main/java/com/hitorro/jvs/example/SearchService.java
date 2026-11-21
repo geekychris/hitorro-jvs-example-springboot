@@ -1,6 +1,6 @@
 package com.hitorro.jvs.example;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.hitorro.index.IndexManager;
 import com.hitorro.index.config.IndexConfig;
 import com.hitorro.index.search.FacetResult;
@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
+import com.hitorro.util.json.JsonValues;
 
 @Service
 public class SearchService {
@@ -187,8 +188,8 @@ public class SearchService {
         int kvHits = 0;
         for (JVS jvs : result.getDocuments()) {
             JsonNode luceneDoc = jvs.getJsonNode();
-            float score = luceneDoc.has("_score") ? (float) luceneDoc.get("_score").asDouble(0) : 0;
-            String uid = luceneDoc.has("_uid") ? luceneDoc.get("_uid").asText() : null;
+            float score = luceneDoc.has("_score") ? (float) JsonValues.asDouble(luceneDoc.get("_score"), 0) : 0;
+            String uid = luceneDoc.has("_uid") ? JsonValues.asText(luceneDoc.get("_uid")) : null;
 
             JsonNode document = null;
 
@@ -207,10 +208,10 @@ public class SearchService {
             // Strategy 2: Parse _source field (full original JSON stored in index)
             if (document == null && luceneDoc.has("_source")) {
                 JsonNode sourceNode = luceneDoc.get("_source");
-                if (sourceNode.isTextual()) {
+                if (sourceNode.isString()) {
                     try {
-                        document = new com.fasterxml.jackson.databind.ObjectMapper()
-                                .readTree(sourceNode.asText());
+                        document = com.hitorro.util.json.JsonMappers.json()
+                                .readTree(JsonValues.asText(sourceNode));
                     } catch (Exception e) {
                         // fall through to raw Lucene doc
                     }
@@ -267,12 +268,12 @@ public class SearchService {
         JsonNode idNode = luceneDoc.get("id");
         if (idNode != null) {
             if (idNode.has("domain") && idNode.has("did")) {
-                return idNode.get("domain").asText() + "/" + idNode.get("did").asText();
+                return JsonValues.asText(idNode.get("domain")) + "/" + JsonValues.asText(idNode.get("did"));
             }
             // Strategy B: id.id in "domain:did" format (Lucene field reconstruction)
             JsonNode idId = idNode.has("id") ? idNode.get("id") : null;
             if (idId != null) {
-                String combined = idId.isTextual() ? idId.asText() : (idId.has("identifier_s") ? idId.get("identifier_s").asText() : null);
+                String combined = idId.isString() ? JsonValues.asText(idId) : (idId.has("identifier_s") ? JsonValues.asText(idId.get("identifier_s")) : null);
                 if (combined != null) {
                     int colon = combined.indexOf(':');
                     if (colon > 0) {
@@ -282,7 +283,7 @@ public class SearchService {
             }
         }
         // Strategy C: _uid field (contains did without domain)
-        String uid = luceneDoc.has("_uid") ? luceneDoc.get("_uid").asText() : null;
+        String uid = luceneDoc.has("_uid") ? JsonValues.asText(luceneDoc.get("_uid")) : null;
         if (uid != null) {
             // Try all known domains from the extracted store
             for (String storedKey : List.of("research/" + uid, "engineering/" + uid, "hr/" + uid, "finance/" + uid)) {
@@ -336,17 +337,17 @@ public class SearchService {
         if (metaNode == null || !metaNode.has("fields")) return;
 
         for (JsonNode fn : metaNode.get("fields")) {
-            String fieldName = fn.has("name") ? fn.get("name").asText() : null;
+            String fieldName = fn.has("name") ? JsonValues.asText(fn.get("name")) : null;
             if (fieldName == null) continue;
 
             String fieldPath = prefix.isEmpty() ? fieldName : prefix + "." + fieldName;
-            boolean isVector = fn.has("vector") && fn.get("vector").asBoolean();
+            boolean isVector = fn.has("vector") && JsonValues.asBoolean(fn.get("vector"));
             boolean isDynamic = fn.has("dynamic");
 
             if (fn.has("groups") && fn.get("groups").isArray()) {
                 for (JsonNode gn : fn.get("groups")) {
-                    String groupName = gn.isTextual() ? gn.asText() : (gn.has("name") ? gn.get("name").asText() : "");
-                    String method = gn.has("method") ? gn.get("method").asText() : "";
+                    String groupName = gn.isString() ? JsonValues.asText(gn) : (gn.has("name") ? JsonValues.asText(gn.get("name")) : "");
+                    String method = gn.has("method") ? JsonValues.asText(gn.get("method")) : "";
 
                     if ("index".equals(groupName) && !method.isEmpty()) {
                         LuceneFieldType lft = fieldTypes.get(method);
@@ -367,7 +368,7 @@ public class SearchService {
                 }
             }
 
-            String fieldTypeName = fn.has("type") ? fn.get("type").asText() : null;
+            String fieldTypeName = fn.has("type") ? JsonValues.asText(fn.get("type")) : null;
             if (fieldTypeName != null) {
                 Type fieldType = JsonTypeSystem.getMe().getType(fieldTypeName);
                 if (fieldType != null && !fieldType.isPrimitiveType()) {

@@ -1,6 +1,6 @@
 package com.hitorro.jvs.example;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.hitorro.kvstore.DatabaseConfig;
 import com.hitorro.kvstore.KVStore;
 import com.hitorro.kvstore.RocksDBStore;
@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.util.*;
+import com.hitorro.util.json.JsonValues;
 
 @Service
 public class DocumentStoreService {
@@ -56,7 +57,7 @@ public class DocumentStoreService {
     public String buildKey(JsonNode doc) {
         JsonNode id = doc.get("id");
         if (id != null && id.has("domain") && id.has("did")) {
-            return id.get("domain").asText() + "/" + id.get("did").asText();
+            return JsonValues.asText(id.get("domain")) + "/" + JsonValues.asText(id.get("did"));
         }
         return null;
     }

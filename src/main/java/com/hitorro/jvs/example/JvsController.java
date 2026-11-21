@@ -1,12 +1,14 @@
 package com.hitorro.jvs.example;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
+import com.hitorro.util.json.JsonMappers;
 import com.hitorro.jsontypesystem.JVS;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import com.hitorro.util.json.JsonValues;
 
 @RestController
 @RequestMapping("/api/jvs")
@@ -16,6 +18,14 @@ public class JvsController {
     private final JvsService svc;
 
     public JvsController(JvsService svc) { this.svc = svc; }
+
+    /**
+     * The node as compact JSON. Not {@code node.toString()}: on Jackson 3 that fails past 500 levels of
+     * nesting, while request bodies (and Jackson 2's toString) go to 1000.
+     */
+    private static String json(JsonNode node) {
+        return JsonMappers.json().writeValueAsString(node);
+    }
 
     // ─── Type System ───────────────────────────────────────────────
 
@@ -43,9 +53,9 @@ public class JvsController {
 
     @PostMapping("/propaccess")
     public ResponseEntity<Map<String, Object>> propaccess(@RequestBody JsonNode request) {
-        String json = request.has("json") && request.get("json").isTextual()
-            ? request.get("json").asText() : request.has("json") ? request.get("json").toString() : request.toString();
-        String path = request.has("path") ? request.get("path").asText("") : "";
+        String json = request.has("json") && request.get("json").isString()
+            ? JsonValues.asText(request.get("json")) : request.has("json") ? json(request.get("json")) : json(request);
+        String path = request.has("path") ? JsonValues.asText(request.get("path"), "") : "";
         return ResponseEntity.ok(svc.getValueAtPath(json, path));
     }
 
@@ -53,35 +63,35 @@ public class JvsController {
 
     @PostMapping("/documents")
     public ResponseEntity<JsonNode> createDocument(@RequestBody JsonNode body) {
-        return ResponseEntity.ok(svc.createDocument(body.toString()).getJsonNode());
+        return ResponseEntity.ok(svc.createDocument(json(body)).getJsonNode());
     }
 
     @PostMapping("/merge")
     public ResponseEntity<JsonNode> merge(@RequestBody JsonNode request) {
         JVS merged = svc.mergeDocuments(
-            request.get("base").toString(), request.get("overlay").toString());
+            json(request.get("base")), json(request.get("overlay")));
         return ResponseEntity.ok(merged.getJsonNode());
     }
 
     @PostMapping("/validate")
     public ResponseEntity<Map<String, Object>> validate(@RequestBody JsonNode body) {
-        return ResponseEntity.ok(svc.validateDocument(body.toString()));
+        return ResponseEntity.ok(svc.validateDocument(json(body)));
     }
 
     // ─── Enrichment (Dynamic Fields) ───────────────────────────────
 
     @PostMapping("/enrich")
     public ResponseEntity<Map<String, Object>> enrich(@RequestBody JsonNode request) {
-        String json = request.has("json") ? request.get("json").toString() : request.toString();
+        String json = request.has("json") ? json(request.get("json")) : json(request);
         // If the request has a "json" field it's a structured request, otherwise raw JSON
-        if (request.has("json") && request.get("json").isTextual()) {
-            json = request.get("json").asText();
+        if (request.has("json") && request.get("json").isString()) {
+            json = JsonValues.asText(request.get("json"));
         } else if (request.has("json")) {
-            json = request.get("json").toString();
+            json = json(request.get("json"));
         } else {
-            json = request.toString();
+            json = json(request);
         }
-        String tags = request.has("tags") ? request.get("tags").asText("") : "";
+        String tags = request.has("tags") ? JsonValues.asText(request.get("tags"), "") : "";
         return ResponseEntity.ok(svc.enrichDocument(json, tags));
     }
 
@@ -98,16 +108,16 @@ public class JvsController {
 
     @PostMapping("/translate")
     public ResponseEntity<Map<String, Object>> translate(@RequestBody JsonNode request) {
-        String json = request.has("json") && request.get("json").isTextual()
-            ? request.get("json").asText() : request.get("json").toString();
+        String json = request.has("json") && request.get("json").isString()
+            ? JsonValues.asText(request.get("json")) : json(request.get("json"));
         List<String> mlsFields = new java.util.ArrayList<>();
         if (request.has("mlsFields")) {
-            request.get("mlsFields").forEach(f -> mlsFields.add(f.asText()));
+            request.get("mlsFields").forEach(f -> mlsFields.add(JsonValues.asText(f)));
         }
-        String sourceLang = request.has("sourceLanguage") ? request.get("sourceLanguage").asText("en") : "en";
+        String sourceLang = request.has("sourceLanguage") ? JsonValues.asText(request.get("sourceLanguage"), "en") : "en";
         List<String> targetLangs = new java.util.ArrayList<>();
         if (request.has("targetLanguages")) {
-            request.get("targetLanguages").forEach(l -> targetLangs.add(l.asText()));
+            request.get("targetLanguages").forEach(l -> targetLangs.add(JsonValues.asText(l)));
         }
         return ResponseEntity.ok(svc.translateDocument(json, mlsFields, sourceLang, targetLangs));
     }

@@ -1,12 +1,13 @@
 package com.hitorro.jvs.example;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import com.hitorro.util.json.JsonValues;
 
 @RestController
 @RequestMapping("/api/jvs/pipeline")
@@ -139,19 +140,19 @@ public class NdjsonPipelineController {
     // ─── Helpers ──────────────────────────────────────────────────
 
     private String extractTags(JsonNode request) {
-        if (request != null && request.has("tags")) return request.get("tags").asText("");
+        if (request != null && request.has("tags")) return JsonValues.asText(request.get("tags"), "");
         return "";
     }
 
     private String extractSourceLang(JsonNode request) {
-        if (request != null && request.has("sourceLanguage")) return request.get("sourceLanguage").asText("en");
+        if (request != null && request.has("sourceLanguage")) return JsonValues.asText(request.get("sourceLanguage"), "en");
         return "en";
     }
 
     private List<String> extractTargetLangs(JsonNode request) {
         List<String> langs = new ArrayList<>();
         if (request != null && request.has("targetLanguages") && request.get("targetLanguages").isArray()) {
-            request.get("targetLanguages").forEach(n -> langs.add(n.asText()));
+            request.get("targetLanguages").forEach(n -> langs.add(JsonValues.asText(n)));
         }
         return langs.isEmpty() ? List.of("de", "es") : langs;
     }
