@@ -1,3 +1,81 @@
+### environment
+mode: app
+HT_BIN config (file sha256):
+  config/schemas/core_boolean.schema.json 0cbd8d53d157
+  config/schemas/core_date.schema.json 6144a5ff3e5d
+  config/schemas/core_dates.schema.json edf99c7aa6b1
+  config/schemas/core_id.schema.json a640bbbb153f
+  config/schemas/core_long.schema.json cbd98d561392
+  config/schemas/core_mls.schema.json 8c90f4b3a21b
+  config/schemas/core_mlselem.schema.json 99e3e914ed4c
+  config/schemas/core_string.schema.json aa96aed252b1
+  config/schemas/core_sysobject.schema.json 36a9f44a24c4
+  config/schemas/core_url.schema.json 3ac0ca1d026c
+  config/schemas/demo_article.schema.json 115cae8c35d9
+  config/types/core_boolean.json 70f6b077f44c
+  config/types/core_capability.json 2b290e85e2ff
+  config/types/core_cme.json ac0111fee004
+  config/types/core_date.json 465c79b2a4d9
+  config/types/core_dates.json 9218254ed2e0
+  config/types/core_id.json fd317c328ced
+  config/types/core_long.json 7c385fbaf26f
+  config/types/core_mls.json 32dd679fecef
+  config/types/core_mlselem.json 0b705ed2e8e9
+  config/types/core_port.json 92c9a3b725e0
+  config/types/core_qanda.json 24ecde205f53
+  config/types/core_query.json e7ea683323c8
+  config/types/core_result.json 450e34dd3a99
+  config/types/core_string.json 24d3c1a38d71
+  config/types/core_sysobject.json 593e7797de5b
+  config/types/core_url.json 4adbd97b438a
+  config/types/demo_article.json 1180cda6292f
+  config/types/demo_document.json 6743c6df33a7
+  config/types/demo_event.json 986cf8267db7
+  config/types/demo_person.json dd51512e85a8
+  config/types/demo_product.json d9625f89f494
+  config/types/demo_property.json fa616272bea6
+  config/types/demo_recipe.json ec4e7d04c09f
+  config/types/demo_ticket.json 20ae1950794c
+  config/types/dm_category.json d1f4620b6f32
+  config/types/dm_id.json 6a568747b90d
+  config/types/dm_metadata.json 222410d0d377
+  config/types/dm_reference.json d821efc94cd4
+  config/types/dm_times.json ec9611f39871
+  config/types/dm_versionable_object.json c6eee0b10ac7
+app config/types (file sha256):
+  config/types/core_boolean.json 70f6b077f44c
+  config/types/core_capability.json 2b290e85e2ff
+  config/types/core_cme.json ac0111fee004
+  config/types/core_date.json 465c79b2a4d9
+  config/types/core_dates.json 9218254ed2e0
+  config/types/core_id.json fd317c328ced
+  config/types/core_long.json 7c385fbaf26f
+  config/types/core_mls.json 32dd679fecef
+  config/types/core_mlselem.json 0b705ed2e8e9
+  config/types/core_port.json 92c9a3b725e0
+  config/types/core_qanda.json 24ecde205f53
+  config/types/core_query.json e7ea683323c8
+  config/types/core_result.json 450e34dd3a99
+  config/types/core_string.json 24d3c1a38d71
+  config/types/core_sysobject.json 593e7797de5b
+  config/types/core_url.json 4adbd97b438a
+  config/types/demo_article.json 1180cda6292f
+  config/types/demo_document.json 6743c6df33a7
+  config/types/demo_event.json 986cf8267db7
+  config/types/demo_person.json dd51512e85a8
+  config/types/demo_product.json d9625f89f494
+  config/types/demo_property.json fa616272bea6
+  config/types/demo_recipe.json ec4e7d04c09f
+  config/types/demo_ticket.json 20ae1950794c
+  config/types/dm_category.json d1f4620b6f32
+  config/types/dm_id.json 6a568747b90d
+  config/types/dm_metadata.json 222410d0d377
+  config/types/dm_reference.json d821efc94cd4
+  config/types/dm_times.json ec9611f39871
+  config/types/dm_versionable_object.json c6eee0b10ac7
+HT_BIN data (entry: files, bytes):
+  demo-documents.ndjson: 1, 12001
+
 ### jvs types
 status: 200
 content-type: application/json
@@ -101,12 +179,12 @@ content-type: application/json
 ### jvs stem en
 status: 200
 content-type: application/json
-{"original":"The dogs were running happily","stemmed":"the dog were run happili","language":"en"}
+{"language":"en","original":"The dogs were running happily","stemmed":"the dog were run happili"}
 
 ### jvs stem de
 status: 200
 content-type: application/json
-{"original":"Die Hunde liefen glücklich","stemmed":"die hund lief glucklich","language":"de"}
+{"language":"de","original":"Die Hunde liefen glücklich","stemmed":"die hund lief glucklich"}
 
 ### jvs translate
 status: 200
@@ -574,7 +652,7 @@ content-type:
 ### retrieval health
 status: 200
 content-type: application/json
-{"status":"ok","indexes":4}
+{"indexes":4,"status":"ok"}
 
 ### retrieval transport status
 status: 200
@@ -584,12 +662,12 @@ content-type: application/json
 ### retrieval transport toggle on
 status: 200
 content-type: application/json
-{"remote":true,"description":"Using wire transport (HTTP calls to localhost — same JVM, demonstrating the remote protocol)"}
+{"description":"Using wire transport (HTTP calls to localhost — same JVM, demonstrating the remote protocol)","remote":true}
 
 ### retrieval transport toggle off
 status: 200
 content-type: application/json
-{"remote":false,"description":"Using local in-process providers (direct Lucene + KVStore calls)"}
+{"description":"Using local in-process providers (direct Lucene + KVStore calls)","remote":false}
 
 ### wire search
 status: 200
@@ -619,7 +697,7 @@ content-type: application/json
 ### wire health
 status: 200
 content-type: application/json
-{"status":"ok","indexes":4}
+{"indexes":4,"status":"ok"}
 
 ### retrieval delete index
 status: 200
@@ -694,7 +772,7 @@ content-type: application/json
 ### git status empty
 status: 200
 content-type: application/json
-{"tags":[],"cachedRepos":0}
+{"cachedRepos":0,"tags":[]}
 
 ### git scan
 status: 200
@@ -789,7 +867,7 @@ content-type: application/json
 ### git status
 status: 200
 content-type: application/json
-{"tags":["golden"],"cachedRepos":1}
+{"cachedRepos":1,"tags":["golden"]}
 
 ### git repo out of range
 status: 404

@@ -60,6 +60,11 @@ public final class GoldenRecorder {
         this.expected = RECORD ? Map.of() : parse(Files.readString(file, StandardCharsets.UTF_8));
     }
 
+    /** The recorded text of a section (compare mode), or null. */
+    public String expected(String name) {
+        return expected.get(name);
+    }
+
     /** Replace every number (or string) value of keys matching {@code keyRegex} with 0 (or "~"). */
     public GoldenRecorder volatileKeys(String keyRegex) {
         Pattern num = Pattern.compile("(\"(?:" + keyRegex + ")\"\\s*:\\s*)-?[0-9][0-9.eE+-]*");

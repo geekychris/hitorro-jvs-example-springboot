@@ -553,6 +553,21 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
+            <!-- Tests get a defined HT_BIN (this checkout's config and data) instead of the app's
+                 guess of ".." or ".", so results don't depend on the surrounding layout. Each test
+                 class runs in its own JVM: the type system and NLP tables are JVM-wide singletons,
+                 and GoldenRestFullTest (-Dgolden.htbin=...) needs a different HT_BIN. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <reuseForks>false</reuseForks>
+                    <systemPropertyVariables>
+                        <HT_BIN>${project.basedir}</HT_BIN>
+                        <HT_HOME>${project.basedir}</HT_HOME>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
             <!-- Copy type definitions and OpenNLP models for runtime -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
