@@ -74,6 +74,17 @@ public final class ConverterProbe {
         }
     }
 
+    /** Reading target for JDK value types Jackson 3 parses differently. */
+    public static class JdkTarget {
+        public java.util.Locale locale;
+        public java.time.Month month;
+        public Map<java.util.Locale, Integer> byLocale;
+        @Override public String toString() {
+            return "locale=" + (locale == null ? null : locale.toString() + "|" + locale.toLanguageTag())
+                    + " month=" + month + " byLocale=" + byLocale;
+        }
+    }
+
     public static void run(HttpMessageConverter<Object> c, GoldenRecorder g) {
         Map<String, Object> w = new LinkedHashMap<>();
         w.put("record", new Rec("z", 2, Instant.ofEpochMilli(1_700_000_000_123L), List.of("a", "b")));
@@ -90,6 +101,10 @@ public final class ConverterProbe {
         w.put("enum", Color.GREEN);
         w.put("locale", java.util.Locale.CANADA_FRENCH);
         w.put("locale-map-key", Map.of(java.util.Locale.CANADA_FRENCH, 1));
+        w.put("locale-script", java.util.Locale.forLanguageTag("zh-Hant-TW"));
+        w.put("locale-country-only", new java.util.Locale.Builder().setRegion("US").build());
+        w.put("month", java.time.Month.NOVEMBER);
+        w.put("day-of-week", java.time.DayOfWeek.FRIDAY);
         w.put("zoned-date-time", java.time.ZonedDateTime.of(2026, 11, 20, 13, 45, 30, 0, java.time.ZoneId.of("America/Los_Angeles")));
         w.put("local-time", java.time.LocalTime.of(13, 45, 30, 1_000_000));
         w.put("year-month", java.time.YearMonth.of(2026, 11));
@@ -159,6 +174,18 @@ public final class ConverterProbe {
         r.put("target-empty", "");
         r.put("target-locale-style-instant", "{\"when\":\"2026-11-20T13:45:30.123+01:00\"}");
         for (var e : r.entrySet()) g.put("converter-read " + e.getKey(), GoldenRecorder.read(c, Target.class, e.getValue()));
+
+        Map<String, String> j = new LinkedHashMap<>();
+        j.put("locale", "{\"locale\":\"fr_CA\"}");
+        j.put("locale-tag", "{\"locale\":\"fr-CA\"}");
+        j.put("locale-script", "{\"locale\":\"zh_TW_#Hant\"}");
+        j.put("locale-extension", "{\"locale\":\"de_DE_#u-co-phonebk\"}");
+        j.put("locale-padded", "{\"locale\":\" en_US \"}");
+        j.put("locale-empty", "{\"locale\":\"\"}");
+        j.put("locale-map-key", "{\"byLocale\":{\"sr__#Latn\":1,\" en \":2}}");
+        j.put("month-name", "{\"month\":\"NOVEMBER\"}");
+        j.put("month-number", "{\"month\":10}");
+        for (var e : j.entrySet()) g.put("converter-read-jdk " + e.getKey(), GoldenRecorder.read(c, JdkTarget.class, e.getValue()));
 
         Map<String, String> m = new LinkedHashMap<>();
         m.put("map", "{\"b\":1,\"a\":[1,2.5,\"s\",null,true],\"c\":{\"x\":1.10}}");

@@ -21,7 +21,7 @@ content-type:
 ### jvs status
 status: 200
 content-type: application/json
-{"typeSystem":true,"translation":{"available":false,"error":null},"types":30}
+{"types":30,"translation":{"available":false,"error":null},"typeSystem":true}
 
 ### jvs translate status
 status: 200
@@ -76,12 +76,12 @@ content-type: application/json
 ### jvs validate typed
 status: 200
 content-type: application/json
-{"typeName":"article","valid":false,"violations":[{"path":"author","level":"WARNING","message":"missing field"},{"path":"publication","level":"WARNING","message":"missing field"},{"path":"published_date","level":"WARNING","message":"missing field"},{"path":"category","level":"WARNING","message":"missing field"},{"path":"tags","level":"WARNING","message":"missing field"},{"path":"content","level":"WARNING","message":"missing field"},{"path":"excerpt","level":"WARNING","message":"missing field"},{"path":"source_url","level":"WARNING","message":"missing field"},{"path":"id","level":"INFO","message":"field not defined in type 'article'"},{"path":"title","level":"INFO","message":"field not defined in type 'article'"},{"path":"body","level":"INFO","message":"field not defined in type 'article'"},{"path":"count","level":"INFO","message":"field not defined in type 'article'"},{"path":"price","level":"INFO","message":"field not defined in type 'article'"},{"path":"ratio","level":"INFO","message":"field not defined in type 'article'"},{"path":"flag","level":"INFO","message":"field not defined in type 'article'"},{"path":"none","level":"INFO","message":"field not defined in type 'article'"},{"path":"list","level":"INFO","message":"field not defined in type 'article'"}]}
+{"typeName":"article","valid":false,"violations":[{"message":"missing field","level":"WARNING","path":"author"},{"message":"missing field","level":"WARNING","path":"publication"},{"message":"missing field","level":"WARNING","path":"published_date"},{"message":"missing field","level":"WARNING","path":"category"},{"message":"missing field","level":"WARNING","path":"tags"},{"message":"missing field","level":"WARNING","path":"content"},{"message":"missing field","level":"WARNING","path":"excerpt"},{"message":"missing field","level":"WARNING","path":"source_url"},{"message":"field not defined in type 'article'","level":"INFO","path":"id"},{"message":"field not defined in type 'article'","level":"INFO","path":"title"},{"message":"field not defined in type 'article'","level":"INFO","path":"body"},{"message":"field not defined in type 'article'","level":"INFO","path":"count"},{"message":"field not defined in type 'article'","level":"INFO","path":"price"},{"message":"field not defined in type 'article'","level":"INFO","path":"ratio"},{"message":"field not defined in type 'article'","level":"INFO","path":"flag"},{"message":"field not defined in type 'article'","level":"INFO","path":"none"},{"message":"field not defined in type 'article'","level":"INFO","path":"list"}]}
 
 ### jvs validate invalid
 status: 200
 content-type: application/json
-{"typeName":"article","valid":false,"violations":[{"path":"author","level":"WARNING","message":"missing field"},{"path":"publication","level":"WARNING","message":"missing field"},{"path":"published_date","level":"WARNING","message":"missing field"},{"path":"category","level":"WARNING","message":"missing field"},{"path":"tags","level":"WARNING","message":"missing field"},{"path":"content","level":"WARNING","message":"missing field"},{"path":"excerpt","level":"WARNING","message":"missing field"},{"path":"source_url","level":"WARNING","message":"missing field"},{"path":"id","level":"INFO","message":"field not defined in type 'article'"},{"path":"title","level":"INFO","message":"field not defined in type 'article'"},{"path":"count","level":"INFO","message":"field not defined in type 'article'"}]}
+{"typeName":"article","valid":false,"violations":[{"message":"missing field","level":"WARNING","path":"author"},{"message":"missing field","level":"WARNING","path":"publication"},{"message":"missing field","level":"WARNING","path":"published_date"},{"message":"missing field","level":"WARNING","path":"category"},{"message":"missing field","level":"WARNING","path":"tags"},{"message":"missing field","level":"WARNING","path":"content"},{"message":"missing field","level":"WARNING","path":"excerpt"},{"message":"missing field","level":"WARNING","path":"source_url"},{"message":"field not defined in type 'article'","level":"INFO","path":"id"},{"message":"field not defined in type 'article'","level":"INFO","path":"title"},{"message":"field not defined in type 'article'","level":"INFO","path":"count"}]}
 
 ### jvs enrich untyped
 status: 200
@@ -101,12 +101,12 @@ content-type: application/json
 ### jvs stem en
 status: 200
 content-type: application/json
-{"language":"en","stemmed":"the dog were run happili","original":"The dogs were running happily"}
+{"original":"The dogs were running happily","stemmed":"the dog were run happili","language":"en"}
 
 ### jvs stem de
 status: 200
 content-type: application/json
-{"language":"de","stemmed":"die hund lief glucklich","original":"Die Hunde liefen glücklich"}
+{"original":"Die Hunde liefen glücklich","stemmed":"die hund lief glucklich","language":"de"}
 
 ### jvs translate
 status: 200
@@ -694,7 +694,7 @@ content-type: application/json
 ### git status empty
 status: 200
 content-type: application/json
-{"cachedRepos":0,"tags":[]}
+{"tags":[],"cachedRepos":0}
 
 ### git scan
 status: 200
@@ -789,7 +789,7 @@ content-type: application/json
 ### git status
 status: 200
 content-type: application/json
-{"cachedRepos":1,"tags":["golden"]}
+{"tags":["golden"],"cachedRepos":1}
 
 ### git repo out of range
 status: 404
@@ -862,6 +862,18 @@ ok "fr_CA"
 
 ### converter-write locale-map-key
 ok {"fr_CA":1}
+
+### converter-write locale-script
+ok "zh_TW_#Hant"
+
+### converter-write locale-country-only
+ok "_US"
+
+### converter-write month
+ok "NOVEMBER"
+
+### converter-write day-of-week
+ok "FRIDAY"
 
 ### converter-write zoned-date-time
 ok "2026-11-20T13:45:30-08:00"
@@ -1033,6 +1045,33 @@ error HttpMessageNotReadableException
 
 ### converter-read target-locale-style-instant
 ok Target:count=0 name=null tags=null when=2026-11-20T12:45:30.123Z color=null ratio=0.0
+
+### converter-read-jdk locale
+ok JdkTarget:locale=fr_CA|fr-CA month=null byLocale=null
+
+### converter-read-jdk locale-tag
+ok JdkTarget:locale=fr_CA|fr-CA month=null byLocale=null
+
+### converter-read-jdk locale-script
+ok JdkTarget:locale=zh_TW_#Hant|zh-Hant-TW month=null byLocale=null
+
+### converter-read-jdk locale-extension
+ok JdkTarget:locale=de_DE_#u-co-phonebk|de-DE-u-co-phonebk month=null byLocale=null
+
+### converter-read-jdk locale-padded
+ok JdkTarget:locale=en_US|en-US month=null byLocale=null
+
+### converter-read-jdk locale-empty
+ok JdkTarget:locale=|und month=null byLocale=null
+
+### converter-read-jdk locale-map-key
+ok JdkTarget:locale=null month=null byLocale={sr__#Latn=1,  en =2}
+
+### converter-read-jdk month-name
+ok JdkTarget:locale=null month=NOVEMBER byLocale=null
+
+### converter-read-jdk month-number
+ok JdkTarget:locale=null month=NOVEMBER byLocale=null
 
 ### converter-read-map map
 ok LinkedHashMap{b=Integer:1,a=ArrayList[Integer:1,Double:2.5,String:s,null,Boolean:true,],c=LinkedHashMap{x=Double:1.1,},}

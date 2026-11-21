@@ -1,5 +1,6 @@
 package com.hitorro.jvs.example;
 
+import com.hitorro.util.json.Jackson2JdkModule;
 import com.hitorro.util.json.JsonMappers;
 import org.springframework.boot.jackson.autoconfigure.JsonFactoryBuilderCustomizer;
 import org.springframework.boot.jackson.autoconfigure.JsonMapperBuilderCustomizer;
@@ -7,10 +8,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
-import tools.jackson.databind.module.SimpleModule;
-import tools.jackson.databind.ser.std.ToStringSerializer;
-
-import java.util.Locale;
 
 /**
  * Keeps the REST/JSON format the app had on Jackson 2.
@@ -24,9 +21,11 @@ import java.util.Locale;
  * ones {@link JsonMappers#builder()} uses. It runs after Boot's own factory customizer, which sets the
  * limits from {@code spring.jackson.factory.constraints.*}.
  *
- * <p>Jackson 3 also writes a {@link Locale} as its language tag ({@code "fr-CA"}) where Jackson 2 wrote
- * {@code toString()} ({@code "fr_CA"}), and no feature switches it back, so a serializer restores it
- * (as the hitorro-spring-boot starter does).
+ * <p>Jackson 3 also handles some JDK types differently, with no feature to switch back: it writes a
+ * {@code Locale} as its language tag ({@code "fr-CA"}, Jackson 2 wrote {@code "fr_CA"}), parses
+ * {@code "zh_TW_#Hant"} differently and writes a {@code Month} as a number. hitorro-core's
+ * {@link Jackson2JdkModule} restores Jackson 2.18's handling (as {@link JsonMappers} and the
+ * hitorro-spring-boot starter do).
  */
 @Configuration(proxyBeanMethods = false)
 public class JsonConfig {
@@ -40,8 +39,7 @@ public class JsonConfig {
     }
 
     @Bean
-    JsonMapperBuilderCustomizer jackson2LocaleFormat() {
-        return builder -> builder.addModule(new SimpleModule("jackson2-locale")
-                .addSerializer(Locale.class, ToStringSerializer.instance));
+    JsonMapperBuilderCustomizer jackson2JdkTypes() {
+        return builder -> builder.addModule(new Jackson2JdkModule());
     }
 }
